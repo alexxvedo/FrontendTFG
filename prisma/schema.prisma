@@ -1,0 +1,70 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+ 
+generator client {
+  provider = "prisma-client-js"
+}
+ 
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+}
+ 
+model Account {
+  userId            String
+  type              String           @db.VarChar(191)
+  provider          String           @db.VarChar(191)
+  providerAccountId String           @db.VarChar(191)
+  refresh_token     String?          @db.Text
+  access_token      String?          @db.Text
+  expires_at        Int?
+  token_type        String?          @db.VarChar(191)
+  scope             String?          @db.Text
+  id_token          String?          @db.Text
+  session_state     String?          @db.VarChar(191)
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@id([provider, providerAccountId])
+}
+
+ 
+  /**
+   * The Session model represents a user's active session
+   * with the API. A session is a short-lived, secure
+   * token that can be used to authenticate a user.
+   *
+   * @see https://next-auth.js.org/docs/concepts/sessions
+   */
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+ 
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+ 
+  @@id([identifier, token])
+}
+ 

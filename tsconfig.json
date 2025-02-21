@@ -22,6 +22,17 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "app/workspaces/[workspaceId]/collections/page.js",
+    "app/workspaces/page.js",
+    "app/workspaces/[workspaceId]/layout.js",
+    "app/page.jsx",
+    "app/layout.jsx",
+    "lib/utils.js"
+  ],
   "exclude": ["node_modules"]
 }
