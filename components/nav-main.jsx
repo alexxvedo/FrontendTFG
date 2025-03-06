@@ -17,9 +17,9 @@ import Link from "next/link";
 import { useApi } from "@/lib/api";
 
 export function NavMain({ items, isCollapsed }) {
-  const [collections, setCollections] = useState([]);
   const { activeWorkspace } = useSidebarStore();
   const { activeCollection, setActiveCollection } = useCollectionStore();
+  const { collections, setCollections, addCollection } = useCollectionStore();
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +33,7 @@ export function NavMain({ items, isCollapsed }) {
         const response = await api.collections.listByWorkspace(
           activeWorkspace.id
         );
+        console.log("Collections loaded:", response.data);
         setCollections(response.data || []);
       } catch (error) {
         console.error("Error loading collections:", error);
@@ -40,7 +41,7 @@ export function NavMain({ items, isCollapsed }) {
     };
 
     fetchCollections();
-  }, [activeWorkspace?.id]);
+  }, [activeWorkspace?.id, addCollection]);
 
   const isCollectionActive = (collectionId) => {
     return pathname.includes(`/collection/${collectionId}`);
@@ -57,6 +58,11 @@ export function NavMain({ items, isCollapsed }) {
     [router, setActiveCollection]
   );
 
+  // Función para determinar si un ítem de navegación está activo
+  const isNavItemActive = (url) => {
+    return pathname === url || pathname.startsWith(url);
+  };
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Navigation</SidebarGroupLabel>
@@ -65,11 +71,10 @@ export function NavMain({ items, isCollapsed }) {
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton
               asChild
-              className={
-                item.isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : ""
-              }
+              className={cn(
+                isNavItemActive(item.url) &&
+                  "bg-sidebar-accent text-sidebar-accent-foreground"
+              )}
             >
               <Link href={item.url}>
                 {item.icon && <item.icon className="h-4 w-4" />}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 import { PanelLeftOpen, UserPlus } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { InviteUserDialog } from "@/components/workspace/invite-user-dialog";
 import { WorkspaceUsersList } from "@/components/workspace/workspace-users-list";
 import {
@@ -15,15 +15,39 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
+import { useApi } from "@/lib/api";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Dashboard({ params }) {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
-  const openSidebar = useSidebarStore((state) => state.openSidebar);
   const isSidebarOpen = useSidebarStore((state) => state.isSidebarOpen);
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
-  const { activeWorkspace: workspace } = useSidebarStore((state) => state);
+  const [allUsers, setAllUsers] = useState([]);
+  const api = useApi();
+  const { connectedUsers, socket, user: socketUser } = useWorkspaceSocket();
 
-  console.log("Workspaces: ", workspace);
+  const getUsers = async () => {
+    if (!activeWorkspace) return;
+    const response = await api.workspaces.getUsers(activeWorkspace.id);
+    setAllUsers(response.data);
+  };
+
+  useEffect(() => {
+    getUsers();
+  }, [activeWorkspace]);
+
+  useEffect(() => {
+    if (socket && activeWorkspace?.id) {
+      // Unirse a la página cuando el componente se monta
+      socket.emit("join_page", activeWorkspace.id);
+
+      // Limpieza: salir de la página cuando el componente se desmonta
+      return () => {
+        socket.emit("leave_page", activeWorkspace.id);
+      };
+    }
+  }, [socket, activeWorkspace]);
 
   return (
     <motion.div
@@ -33,7 +57,27 @@ export default function Dashboard({ params }) {
       className="flex-1 space-y-4 p-4 md:p-8 pt-6"
     >
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <div className="flex items-center space-x-2">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <div className="flex items-center space-x-2 ml-4">
+            {connectedUsers &&
+              Array.from(connectedUsers.values()).map((userData) => (
+                <div key={userData.email} className="relative">
+                  <Avatar className="h-8 w-8 ring-2 ring-green-500 ring-offset-2">
+                    <AvatarImage 
+                      src={userData.image} 
+                      alt={userData.name || "Usuario"}
+                      referrerPolicy="no-referrer"
+                    />
+                    <AvatarFallback>
+                      {userData.name?.charAt(0)?.toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-zinc-900" />
+                </div>
+              ))}
+          </div>
+        </div>
         <div className="flex items-center space-x-2">
           <Button onClick={() => setIsInviteDialogOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
@@ -52,14 +96,17 @@ export default function Dashboard({ params }) {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Total Miembros
+                  Usuarios Conectados
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">
-                  +2 desde el último mes
-                </p>
+                <div className="text-2xl font-bold">{connectedUsers?.size}</div>
+                <div className="flex items-center mt-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2" />
+                  <p className="text-sm text-muted-foreground">
+                    de {allUsers.length} miembros
+                  </p>
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -99,7 +146,7 @@ export default function Dashboard({ params }) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <WorkspaceUsersList workspaceId={workspace.id} />
+              <WorkspaceUsersList workspaceId={activeWorkspace?.id} />
             </CardContent>
           </Card>
         </TabsContent>

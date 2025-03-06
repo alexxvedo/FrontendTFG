@@ -43,7 +43,7 @@ export function WorkspaceSwitcher() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const session = useSession();
-  const user = session?.data?.user;
+  const user = session?.data.user;
 
   const api = useApi();
 
@@ -62,8 +62,8 @@ export function WorkspaceSwitcher() {
       if (!user?.id) return;
 
       try {
-        console.log("Loading workspaces for user:", user.id);
-        const response = await api.workspaces.listByUser(user.id);
+        console.log("Loading workspaces for user:", user.email);
+        const response = await api.workspaces.listByUser(user.email);
 
         // Solo actualizar si el componente sigue montado
         if (!mounted) return;
@@ -114,7 +114,7 @@ export function WorkspaceSwitcher() {
         updateActiveWorkspace(workspace);
 
         // Usamos push en lugar de replace para forzar una nueva entrada en el historial
-        await router.push(`/workspaces/${workspace.id}/collections`);
+        await router.push(`/workspaces/${workspace.id}/dashboard`);
       } catch (error) {
         console.error("Error changing workspace:", error);
         toast.error("Error changing workspace");
@@ -126,24 +126,26 @@ export function WorkspaceSwitcher() {
   const handleCreateWorkspace = useCallback(
     async (e) => {
       e.preventDefault();
-      if (!workspaceName.trim() || !user?.id) return;
+      if (!workspaceName.trim() || !user) return;
 
       try {
-        const newWorkspace = await api.workspaces.create(user.id, {
+        const newWorkspace = await api.workspaces.create(user.email, {
           name: workspaceName,
         });
 
+        console.log(newWorkspace.data);
+
         // Asegurarnos de que workspaces es un array antes de actualizarlo
         const currentWorkspaces = Array.isArray(workspaces) ? workspaces : [];
-        const updatedWorkspaces = [...currentWorkspaces, newWorkspace];
+        const updatedWorkspaces = [...currentWorkspaces, newWorkspace.data];
 
         setWorkspaces(updatedWorkspaces);
-        updateActiveWorkspace(newWorkspace);
+        updateActiveWorkspace(newWorkspace.data);
         setWorkspaceName("");
         setIsDialogOpen(false);
 
         // Redirigir a la página de colecciones del nuevo workspace
-        router.push(`/workspaces/${newWorkspace.id}/collections`);
+        router.push(`/workspaces/${newWorkspace.data.id}/dashboard`);
         toast.success("Workspace created successfully");
       } catch (error) {
         console.error("Error creating workspace:", error);
@@ -183,42 +185,57 @@ export function WorkspaceSwitcher() {
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={isMobile}
-            aria-label="Select a workspace"
-            className="w-full justify-between"
-          >
-            <SquareTerminal className="mr-2 h-4 w-4" />
-            {activeWorkspace?.name || "Select a workspace"}
-            <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[200px]">
-          <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {(Array.isArray(workspaces) ? workspaces : []).map((workspace) => (
-            <DropdownMenuItem
-              key={workspace.id}
-              onClick={() => handleWorkspaceChange(workspace)}
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                aria-label="Select a workspace"
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg ">
+                  <SquareTerminal className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">
+                    {activeWorkspace?.name || "Select a workspace"}
+                  </span>
+                </div>
+                <ChevronsUpDown className="ml-auto" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              align="start"
+              side={isMobile ? "bottom" : "right"}
+              sideOffset={4}
             >
-              {workspace.name}
-              {workspace.id === activeWorkspace?.id && (
-                <DropdownMenuShortcut>✓</DropdownMenuShortcut>
+              <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(Array.isArray(workspaces) ? workspaces : []).map(
+                (workspace) => (
+                  <DropdownMenuItem
+                    key={workspace.id}
+                    onClick={() => handleWorkspaceChange(workspace)}
+                  >
+                    {workspace.name}
+                    {workspace.id === activeWorkspace?.id && (
+                      <DropdownMenuShortcut>✓</DropdownMenuShortcut>
+                    )}
+                  </DropdownMenuItem>
+                )
               )}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DialogTrigger asChild>
-            <DropdownMenuItem>
-              <Plus className="mr-2 h-4 w-4" /> Create Workspace
-            </DropdownMenuItem>
-          </DialogTrigger>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <DropdownMenuSeparator />
+              <DialogTrigger asChild>
+                <DropdownMenuItem>
+                  <Plus className="mr-2 h-4 w-4" /> Create Workspace
+                </DropdownMenuItem>
+              </DialogTrigger>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Workspace</DialogTitle>

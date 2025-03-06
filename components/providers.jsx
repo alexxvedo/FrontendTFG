@@ -6,7 +6,6 @@ export function Providers({ children }) {
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      forcedTheme="dark"
       disableTransitionOnChange
     >
       <SessionProvider>{children}</SessionProvider>

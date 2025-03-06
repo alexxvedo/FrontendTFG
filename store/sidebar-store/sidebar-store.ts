@@ -11,6 +11,7 @@ interface Workspace {
   id: string;
   name: string;
   collections?: Collection[];
+  unreadMessages?: number;
 }
 
 // Definir el estado global del Sidebar
@@ -27,6 +28,8 @@ interface SidebarState {
     workspaceId: string,
     collection: Collection
   ) => void;
+  incrementUnreadMessages: (workspaceId: string) => void;
+  clearUnreadMessages: (workspaceId: string) => void;
 }
 
 // Crear el store usando Zustand con persistencia
@@ -43,7 +46,14 @@ export const useSidebarStore = create<SidebarState>()(
       setWorkspaces: (workspaces) => {
         const currentWorkspaces = get().workspaces;
         if (JSON.stringify(workspaces) !== JSON.stringify(currentWorkspaces)) {
-          set({ workspaces });
+          set({
+            workspaces: workspaces.map((w) => ({
+              ...w,
+              unreadMessages:
+                currentWorkspaces.find((cw) => cw.id === w.id)
+                  ?.unreadMessages || 0,
+            })),
+          });
         }
       },
 
@@ -53,7 +63,10 @@ export const useSidebarStore = create<SidebarState>()(
         const state = get();
         if (!state.workspaces.some((w) => w.id === workspace.id)) {
           set({
-            workspaces: [...state.workspaces, workspace],
+            workspaces: [
+              ...state.workspaces,
+              { ...workspace, unreadMessages: 0 },
+            ],
             activeWorkspace: state.activeWorkspace || workspace,
           });
         }
@@ -65,9 +78,31 @@ export const useSidebarStore = create<SidebarState>()(
           !state.activeWorkspace ||
           state.activeWorkspace.id !== workspace.id
         ) {
-          set({ activeWorkspace: workspace });
+          // Al cambiar de workspace activo, limpiar sus mensajes no leídos
+          set({
+            activeWorkspace: workspace,
+            workspaces: state.workspaces.map((w) =>
+              w.id === workspace.id ? { ...w, unreadMessages: 0 } : w
+            ),
+          });
         }
       },
+
+      incrementUnreadMessages: (workspaceId) =>
+        set((state) => ({
+          workspaces: state.workspaces.map((w) =>
+            w.id === workspaceId && state.activeWorkspace?.id !== workspaceId
+              ? { ...w, unreadMessages: (w.unreadMessages || 0) + 1 }
+              : w
+          ),
+        })),
+
+      clearUnreadMessages: (workspaceId) =>
+        set((state) => ({
+          workspaces: state.workspaces.map((w) =>
+            w.id === workspaceId ? { ...w, unreadMessages: 0 } : w
+          ),
+        })),
 
       addCollectionToWorkspace: (workspaceId, collection) =>
         set((state) => ({

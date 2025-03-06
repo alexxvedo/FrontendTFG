@@ -1,22 +1,36 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-const storage = typeof window !== 'undefined' 
-  ? createJSONStorage(() => localStorage)
-  : createJSONStorage(() => ({
-      getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-    }));
+const storage =
+  typeof window !== "undefined"
+    ? createJSONStorage(() => localStorage)
+    : createJSONStorage(() => ({
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      }));
 
 export const useCollectionStore = create(
   persist(
     (set, get) => ({
       activeCollection: null,
       setActiveCollection: (collection) => {
-        console.log('Setting active collection:', collection);
+        console.log("Setting active collection:", collection);
         set({ activeCollection: collection });
       },
+      collections: [],
+      addCollections: (collections) =>
+        set((state) => ({
+          collections: [...state.collections, ...collections],
+        })),
+      addCollection: (collection) =>
+        set((state) => ({
+          collections: [...state.collections, collection],
+        })),
+      setCollections: (collections) =>
+        set((state) => ({
+          collections: collections,
+        })),
       addFlashcard: (flashcard) =>
         set((state) => ({
           activeCollection: {
@@ -31,18 +45,20 @@ export const useCollectionStore = create(
         set((state) => ({
           activeCollection: {
             ...state.activeCollection,
-            flashcards: state.activeCollection?.flashcards?.map((f) =>
-              f.id === flashcardId ? { ...f, ...updates } : f
-            ) || [],
+            flashcards:
+              state.activeCollection?.flashcards?.map((f) =>
+                f.id === flashcardId ? { ...f, ...updates } : f
+              ) || [],
           },
         })),
       removeFlashcard: (flashcardId) =>
         set((state) => ({
           activeCollection: {
             ...state.activeCollection,
-            flashcards: state.activeCollection?.flashcards?.filter(
-              (f) => f.id !== flashcardId
-            ) || [],
+            flashcards:
+              state.activeCollection?.flashcards?.filter(
+                (f) => f.id !== flashcardId
+              ) || [],
           },
         })),
     }),
@@ -50,7 +66,7 @@ export const useCollectionStore = create(
       name: "collection-storage",
       storage,
       onRehydrateStorage: () => (state) => {
-        console.log('Store rehydrated with state:', state);
+        console.log("Store rehydrated with state:", state);
       },
     }
   )

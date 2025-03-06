@@ -30,8 +30,8 @@ import { useApi } from "@/lib/api";
 import { toast } from "sonner";
 
 export function AppSidebar({ ...props }) {
-  const session = useSession();
-  const user = session.data?.user;
+  const { data: session } = useSession();
+  const user = session?.user;
   const setUser = useUserStore((state) => state.setUser);
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
   const isCollapsed = useSidebarStore((state) => state.isCollapsed);
@@ -80,17 +80,19 @@ export function AppSidebar({ ...props }) {
         title: "Collections",
         url: `/workspaces/${activeWorkspace?.id}/collections`,
         icon: BookA,
-        isActive: true,
+        isActive: false,
       },
       {
         title: "Chat",
         url: `/workspaces/${activeWorkspace?.id}/chat`,
         icon: MessageCircleIcon,
+        isActive: false,
       },
       {
         title: "Todo",
         url: `/workspaces/${activeWorkspace?.id}/agenda`,
         icon: ListTodo,
+        isActive: false,
       },
     ],
     [activeWorkspace]

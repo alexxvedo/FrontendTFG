@@ -7,16 +7,45 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
-import { Plus, Edit, Save, X, PlusCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Highlight from "@tiptap/extension-highlight";
+import CodeBlock from "@tiptap/extension-code-block";
+import Placeholder from "@tiptap/extension-placeholder";
+import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
 import { useApi } from "@/lib/api";
 import { useCollectionStore } from "@/store/collections-store/collection-store";
 import { useSession } from "next-auth/react";
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Code,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link as LinkIcon,
+  Highlighter,
+  Undo,
+  Redo,
+  List,
+  ListOrdered,
+  Heading1,
+  Quote,
+  Table as TableIcon,
+  Palette,
+} from "lucide-react";
 
 export default function FlashcardEditor({
   open,
@@ -24,20 +53,78 @@ export default function FlashcardEditor({
   collection,
   onFlashcardAdded,
 }) {
-  const [questionContent, setQuestionContent] = useState("");
-  const [answerContent, setAnswerContent] = useState("");
   const [flashcards, setFlashcards] = useState([]);
   const [editingFlashcard, setEditingFlashcard] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const questionRef = useRef(null);
-  const answerRef = useRef(null);
   const api = useApi();
   const { addFlashcard, updateFlashcard, removeFlashcard } =
     useCollectionStore();
   const { data: session } = useSession();
-
   const user = session?.user;
+
+  const editorConfig = {
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: false,
+        },
+      }),
+      Highlight.configure({
+        multicolor: true,
+      }),
+      CodeBlock.configure({
+        languageClassPrefix: 'language-',
+        HTMLAttributes: {
+          class: 'rounded-md bg-zinc-100 dark:bg-zinc-800 p-4',
+        },
+      }),
+      Underline,
+      Link.configure({
+        openOnClick: false,
+      }),
+      TextAlign.configure({
+        types: ['paragraph', 'heading'],
+      }),
+      Placeholder.configure({
+        placeholder: 'Escribe aquí...',
+      }),
+      TextStyle,
+      Color,
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          class: 'border-collapse table-auto w-full',
+        },
+      }),
+      TableRow,
+      TableCell,
+      TableHeader,
+    ],
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[200px] p-4 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:ml-4 [&_ol]:ml-4 [&_table]:border [&_td]:border [&_th]:border [&_td]:p-2 [&_th]:p-2',
+      },
+    },
+  };
+
+  const questionEditor = useEditor({
+    ...editorConfig,
+    content: "",
+  });
+
+  const answerEditor = useEditor({
+    ...editorConfig,
+    content: "",
+  });
 
   useEffect(() => {
     if (open && collection) {
@@ -47,26 +134,12 @@ export default function FlashcardEditor({
 
   useEffect(() => {
     if (!open) {
-      setQuestionContent("");
-      setAnswerContent("");
+      questionEditor?.commands.clearContent();
+      answerEditor?.commands.clearContent();
       setEditingFlashcard(null);
       setIsEditing(false);
     }
   }, [open]);
-
-  useEffect(() => {
-    if (open) {
-      if (isEditing && questionRef.current) {
-        setTimeout(() => {
-          questionRef.current.focus();
-        }, 100);
-      } else if (!isEditing && questionRef.current) {
-        setTimeout(() => {
-          questionRef.current.focus();
-        }, 100);
-      }
-    }
-  }, [isEditing, open]);
 
   const fetchFlashcards = async () => {
     if (!collection?.id) return;
@@ -81,7 +154,10 @@ export default function FlashcardEditor({
   };
 
   const saveFlashcard = async () => {
-    if (!questionContent.trim() || !answerContent.trim()) {
+    const questionContent = questionEditor?.getHTML();
+    const answerContent = answerEditor?.getHTML();
+
+    if (!questionContent?.trim() || !answerContent?.trim()) {
       toast.error("Por favor, completa tanto la pregunta como la respuesta.");
       return;
     }
@@ -95,38 +171,28 @@ export default function FlashcardEditor({
         collectionId: collection.id,
       };
 
-      console.log("Intentando guardar flashcard:", newFlashcard);
-      console.log("Estado actual:", {
-        isEditing,
-        editingFlashcard,
-        collection,
-      });
-
       let savedFlashcard;
       if (isEditing && editingFlashcard) {
-        console.log("Actualizando flashcard existente:", editingFlashcard.id);
         const response = await api.flashcards.update(
           collection.id,
           editingFlashcard.id,
-          newFlashcard
+          newFlashcard,
+          user.email
         );
         savedFlashcard = response.data;
-        console.log("Flashcard actualizada:", savedFlashcard);
         updateFlashcard(savedFlashcard);
       } else {
-        console.log("Creando nueva flashcard");
         const response = await api.flashcards.create(
           collection.id,
           newFlashcard,
           user.email
         );
         savedFlashcard = response.data;
-        console.log("Nueva flashcard creada:", savedFlashcard);
         addFlashcard(savedFlashcard);
       }
 
-      setQuestionContent("");
-      setAnswerContent("");
+      questionEditor?.commands.clearContent();
+      answerEditor?.commands.clearContent();
       setEditingFlashcard(null);
       setIsEditing(false);
 
@@ -143,9 +209,6 @@ export default function FlashcardEditor({
       await fetchFlashcards();
     } catch (error) {
       console.error("Error saving flashcard:", error);
-      if (error.response) {
-        console.error("Error response:", error.response.data);
-      }
       toast.error(
         isEditing
           ? "Error al actualizar la flashcard"
@@ -156,56 +219,241 @@ export default function FlashcardEditor({
     }
   };
 
-  const deleteFlashcard = async (id) => {
-    try {
-      setIsLoading(true);
-      await api.flashcards.delete(id);
-
-      // Eliminar la flashcard del estado local
-      setFlashcards((currentFlashcards) =>
-        currentFlashcards.filter((f) => f.id !== id)
-      );
-
-      // Eliminar la flashcard de la colección activa
-      removeFlashcard(id);
-
-      toast.success("Flashcard eliminada correctamente");
-
-      if (onFlashcardAdded) {
-        onFlashcardAdded();
-      }
-    } catch (error) {
-      console.error("Error deleting flashcard:", error);
-      toast.error("Error al eliminar la flashcard");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const startEditing = (flashcard) => {
     setEditingFlashcard(flashcard);
-    setQuestionContent(flashcard.question);
-    setAnswerContent(flashcard.answer);
+    questionEditor?.commands.setContent(flashcard.question);
+    answerEditor?.commands.setContent(flashcard.answer);
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
     setEditingFlashcard(null);
-    setQuestionContent("");
-    setAnswerContent("");
+    questionEditor?.commands.clearContent();
+    answerEditor?.commands.clearContent();
     setIsEditing(false);
+  };
+
+  const MenuBar = ({ editor }) => {
+    if (!editor) {
+      return null;
+    }
+
+    const colors = ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const colorPickerRef = useRef(null);
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (colorPickerRef.current && !colorPickerRef.current.contains(event.target)) {
+          setShowColorPicker(false);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, []);
+
+    const handleColorSelect = (color) => {
+      editor.chain().focus().setColor(color).run();
+      setShowColorPicker(false);
+    };
+
+    return (
+      <div className="flex flex-wrap items-center gap-1 border-b border-zinc-200 dark:border-zinc-800 p-2 bg-zinc-50 dark:bg-zinc-900 rounded-t-lg">
+        {/* Text Formatting */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Heading 1"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          className={editor.isActive('heading', { level: 1 }) ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <Heading1 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Bold"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          className={editor.isActive('bold') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Italic"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={editor.isActive('italic') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Underline"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          className={editor.isActive('underline') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <UnderlineIcon className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+        {/* Code and Highlighting */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Code"
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          className={editor.isActive('code') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <Code className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Highlight"
+          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          className={editor.isActive('highlight') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <Highlighter className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Quote"
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          className={editor.isActive('blockquote') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <Quote className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+        {/* Lists */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Bullet List"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={editor.isActive('bulletList') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <List className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Numbered List"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className={editor.isActive('orderedList') ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <ListOrdered className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+        {/* Alignment */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Align Left"
+          onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          className={editor.isActive({ textAlign: 'left' }) ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <AlignLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Align Center"
+          onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          className={editor.isActive({ textAlign: 'center' }) ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <AlignCenter className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Align Right"
+          onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          className={editor.isActive({ textAlign: 'right' }) ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+        >
+          <AlignRight className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+        {/* Table */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Insert Table"
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        >
+          <TableIcon className="h-4 w-4" />
+        </Button>
+
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+        {/* Text Color */}
+        <div className="relative inline-block" ref={colorPickerRef}>
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Text Color"
+            onClick={() => setShowColorPicker(!showColorPicker)}
+            className={showColorPicker ? 'bg-zinc-200 dark:bg-zinc-800' : ''}
+          >
+            <Palette className="h-4 w-4" />
+          </Button>
+          {showColorPicker && (
+            <div className="absolute flex flex-wrap gap-1 bg-white dark:bg-zinc-800 p-2 rounded-md shadow-lg z-50 top-full left-0 mt-1 min-w-[150px]">
+              {colors.map((color) => (
+                <button
+                  key={color}
+                  className="w-6 h-6 rounded-full border border-zinc-200 dark:border-zinc-700 hover:scale-110 transition-transform"
+                  style={{ backgroundColor: color }}
+                  onClick={() => handleColorSelect(color)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-1" />
+
+        {/* Undo/Redo */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Undo"
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+        >
+          <Undo className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          title="Redo"
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+        >
+          <Redo className="h-4 w-4" />
+        </Button>
+      </div>
+    );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[900px] bg-gradient-to-br from-white to-zinc-50/95 dark:from-zinc-900 dark:to-zinc-950/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 shadow-xl shadow-indigo-500/10"
-        onPointerDownOutside={(e) => {
-          e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          e.preventDefault();
-        }}
+        className="sm:max-w-[900px] md:max-w-[1000px] bg-gradient-to-br from-white to-zinc-50/95 dark:from-zinc-900 dark:to-zinc-950/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 shadow-xl shadow-indigo-500/10"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
@@ -236,7 +484,7 @@ export default function FlashcardEditor({
                 </Button>
               )}
             </div>
-            <ScrollArea className="h-[500px] pr-4 -mr-4">
+            <ScrollArea className="h-[600px] pr-4 -mr-4">
               <div className="space-y-3 pr-4">
                 {flashcards.map((flashcard) => (
                   <motion.div
@@ -254,12 +502,14 @@ export default function FlashcardEditor({
                       }`}
                       onClick={() => startEditing(flashcard)}
                     >
-                      <p className="font-medium text-sm mb-2 line-clamp-2 text-zinc-900 dark:text-zinc-100">
-                        {flashcard.question}
-                      </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                        {flashcard.answer}
-                      </p>
+                      <div
+                        className="font-medium text-sm mb-2 line-clamp-2 text-zinc-900 dark:text-zinc-100 prose dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: flashcard.question }}
+                      />
+                      <div
+                        className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 prose dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: flashcard.answer }}
+                      />
                     </Card>
                   </motion.div>
                 ))}
@@ -275,14 +525,10 @@ export default function FlashcardEditor({
               </label>
               <div className="group relative">
                 <div className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20 blur transition duration-1000 group-hover:opacity-30 group-hover:duration-200"></div>
-                <Textarea
-                  ref={questionRef}
-                  value={questionContent}
-                  onChange={(e) => setQuestionContent(e.target.value)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="Escribe la pregunta o el concepto principal..."
-                  className="relative min-h-[200px] resize-none rounded-lg border-zinc-200 bg-card px-4 py-3 text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-emerald-500 dark:border-zinc-800 dark:placeholder:text-zinc-600 dark:focus:border-emerald-400 dark:focus:ring-emerald-400 backdrop-blur-sm"
-                />
+                <div className="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-card overflow-hidden">
+                  <MenuBar editor={questionEditor} />
+                  <EditorContent editor={questionEditor} />
+                </div>
               </div>
             </div>
 
@@ -292,14 +538,10 @@ export default function FlashcardEditor({
               </label>
               <div className="group relative">
                 <div className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20 blur transition duration-1000 group-hover:opacity-30 group-hover:duration-200"></div>
-                <Textarea
-                  ref={answerRef}
-                  value={answerContent}
-                  onChange={(e) => setAnswerContent(e.target.value)}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="Escribe la respuesta o la explicación..."
-                  className="relative min-h-[200px] resize-none rounded-lg border-zinc-200 bg-card px-4 py-3 text-base placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-emerald-500 dark:border-zinc-800 dark:placeholder:text-zinc-600 dark:focus:border-emerald-400 dark:focus:ring-emerald-400 backdrop-blur-sm"
-                />
+                <div className="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-card overflow-hidden">
+                  <MenuBar editor={answerEditor} />
+                  <EditorContent editor={answerEditor} />
+                </div>
               </div>
             </div>
 
@@ -307,7 +549,9 @@ export default function FlashcardEditor({
               <Button
                 onClick={saveFlashcard}
                 disabled={
-                  !questionContent.trim() || !answerContent.trim() || isLoading
+                  !questionEditor?.getText()?.trim() ||
+                  !answerEditor?.getText()?.trim() ||
+                  isLoading
                 }
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/25 transition-all hover:shadow-xl hover:shadow-emerald-500/35 hover:translate-y-[-1px] active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -350,8 +594,8 @@ export default function FlashcardEditor({
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <span>
-            Tip: Escribe preguntas claras y respuestas concisas para un mejor
-            aprendizaje
+            Tip: Usa el editor enriquecido para crear flashcards más atractivas
+            y estructuradas
           </span>
         </div>
       </DialogContent>

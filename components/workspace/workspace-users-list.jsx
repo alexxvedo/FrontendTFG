@@ -17,16 +17,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 export function WorkspaceUsersList({ workspaceId, onUserRemoved }) {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const api = useApi();
 
   const fetchUsers = async () => {
+    if (!workspaceId) return;
+    
     try {
-      console.log("👍 Fetching users...");
+      console.log("👍 Fetching users for workspace:", workspaceId);
       setIsLoading(true);
-      const api = useApi();
       const response = await api.workspaces.getUsers(workspaceId);
       console.log("👍 Usuarios del workspace:", response.data);
       setUsers(response.data);
     } catch (error) {
+      console.error("Error fetching users:", error);
       toast.error("No se pudieron cargar los usuarios del workspace.");
     } finally {
       setIsLoading(false);
@@ -37,8 +40,26 @@ export function WorkspaceUsersList({ workspaceId, onUserRemoved }) {
     fetchUsers();
   }, [workspaceId]);
 
+  const handleRemoveUser = async (userId) => {
+    try {
+      await api.workspaces.removeUser(workspaceId, userId);
+      await fetchUsers();
+      toast.success("Usuario eliminado correctamente");
+      if (onUserRemoved) {
+        onUserRemoved(userId);
+      }
+    } catch (error) {
+      console.error("Error removing user:", error);
+      toast.error("No se pudo eliminar el usuario");
+    }
+  };
+
   if (isLoading) {
-    return <div>Cargando usuarios...</div>;
+    return (
+      <div className="flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+      </div>
+    );
   }
 
   return (
@@ -57,8 +78,14 @@ export function WorkspaceUsersList({ workspaceId, onUserRemoved }) {
             <TableRow key={user.id}>
               <TableCell className="flex items-center space-x-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.image} />
-                  <AvatarFallback>{user.name?.[0]}</AvatarFallback>
+                  <AvatarImage 
+                    src={user.image} 
+                    alt={user.name || "Usuario"}
+                    referrerPolicy="no-referrer"
+                  />
+                  <AvatarFallback>
+                    {user.name?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
                 </Avatar>
                 <span>{user.name}</span>
               </TableCell>

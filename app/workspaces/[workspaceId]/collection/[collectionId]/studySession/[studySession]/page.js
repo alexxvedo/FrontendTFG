@@ -266,7 +266,7 @@ export default function StudySession({ params }) {
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 mb-2">
           <Progress
             value={studyProgress}
-            className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden"
+            className="flex-1 h-3  rounded-full overflow-hidden"
             indicatorClassName="bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500 ease-in-out"
           />
           <span className="text-zinc-400 ml-4 text-sm">
@@ -282,7 +282,7 @@ export default function StudySession({ params }) {
                 transform-gpu transition-all duration-700
                 shadow-2xl cursor-pointer hover:scale-105
                 ${isFlipped ? "rotate-y-180" : ""}
-                bg-gradient-to-br from-zinc-800 to-zinc-900 border-2 border-zinc-700
+                bg-gradient-to-br 
               `}
             >
               <CardContent className="p-8 flex flex-col items-center justify-center min-h-[400px]">
@@ -297,9 +297,7 @@ export default function StudySession({ params }) {
                     <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
                       {flashcards[currentCardIndex].question}
                     </h2>
-                    <p className="text-zinc-400 mt-4 text-lg">
-                      Click to reveal answer
-                    </p>
+                    <p className="mt-4 text-lg">Click to reveal answer</p>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -309,7 +307,7 @@ export default function StudySession({ params }) {
                     className="text-center w-full rotate-y-180"
                   >
                     <Zap className="h-16 w-16 mx-auto mb-6 text-yellow-400" />
-                    <h2 className="text-3xl font-bold text-zinc-100">
+                    <h2 className="text-3xl font-bold ">
                       {flashcards[currentCardIndex].answer}
                     </h2>
                   </motion.div>
@@ -330,7 +328,7 @@ export default function StudySession({ params }) {
             setCurrentCardIndex((prev) => Math.max(0, prev - 1));
             setIsFlipped(false);
           }}
-          className="border-zinc-700 text-white hover:bg-zinc-800 hover:scale-105 transition-all duration-300 px-6 py-2 text-lg"
+          className=" hover:scale-105 transition-all duration-300 px-6 py-2 text-lg"
         >
           <ArrowLeft className="h-5 w-5 mr-2" /> Previous
         </Button>
@@ -343,7 +341,7 @@ export default function StudySession({ params }) {
             );
             setIsFlipped(false);
           }}
-          className="border-zinc-700 text-white hover:bg-zinc-800 hover:scale-105 transition-all duration-300 px-6 py-2 text-lg"
+          className="hover:scale-105 transition-all duration-300 px-6 py-2 text-lg"
         >
           Next <ArrowRight className="h-5 w-5 ml-2" />
         </Button>

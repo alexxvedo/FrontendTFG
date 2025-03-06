@@ -283,10 +283,15 @@ export default function Sidebar() {
                         <Link href={`/workspaces/${activeWorkspace.id}/chat`}>
                           <Button
                             variant="ghost"
-                            className="w-full justify-start"
+                            className="w-full justify-start relative"
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
-                            Chat
+                            <span className="flex-1">Chat</span>
+                            {activeWorkspace.unreadMessages > 0 && (
+                              <span className="flex items-center justify-center min-w-[20px] h-5 text-xs bg-blue-500 text-white rounded-full px-1.5">
+                                {activeWorkspace.unreadMessages > 99 ? '99+' : activeWorkspace.unreadMessages}
+                              </span>
+                            )}
                           </Button>
                         </Link>
                       </nav>
@@ -381,9 +386,14 @@ export default function Sidebar() {
                                       updateActiveWorkspace(workspace)
                                     }
                                   >
-                                    <span className="relative z-10">
+                                    <span className="relative z-10 flex-1">
                                       {workspace.name}
                                     </span>
+                                    {workspace.unreadMessages > 0 && (
+                                      <span className="relative z-10 flex items-center justify-center min-w-[20px] h-5 text-xs bg-blue-500 text-white rounded-full px-1.5">
+                                        {workspace.unreadMessages > 99 ? '99+' : workspace.unreadMessages}
+                                      </span>
+                                    )}
                                   </Button>
                                 </Link>
                               </li>

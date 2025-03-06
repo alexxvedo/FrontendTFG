@@ -32,7 +32,8 @@
     "app/workspaces/[workspaceId]/layout.js",
     "app/page.jsx",
     "app/layout.jsx",
-    "lib/utils.js"
+    "lib/utils.js",
+    "components/collections/collections-list.jsx"
   ],
   "exclude": ["node_modules"]
 }

@@ -197,7 +197,7 @@ const Agent = ({
     try {
       const newNote = await api.notes.createNote(
         collectionId,
-        user.id,
+        user.email,
         customNoteTitle,
         noteToSave
       );
@@ -241,7 +241,7 @@ const Agent = ({
         const { data: createdFlashcard } = await api.flashcards.create(
           activeCollection.id,
           newFlashcard,
-          user.id
+          user.email
         );
 
         // Use onFlashcardCreated if provided, similar to onNoteCreated

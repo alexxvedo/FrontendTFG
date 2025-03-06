@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const { workspaceId, permissionType } = await request.json();
+    const body = await req.json();
+    const { workspaceId, permissionType } = body;
+
+    if (!workspaceId || !permissionType) {
+      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
+    }
 
     const token = jwt.sign(
       { workspaceId, permissionType },
@@ -14,10 +19,7 @@ export async function POST(request) {
     );
 
     return NextResponse.json({ token });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Error generating token" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }

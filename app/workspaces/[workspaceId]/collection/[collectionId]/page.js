@@ -11,24 +11,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Bot, ArrowLeft, Play, Clock } from "lucide-react";
+import { Plus, Bot, ArrowLeft, Play, Clock, Users } from "lucide-react";
 import { useParams } from "next/navigation";
-import AIGenerator from "@/components/flashcards/AIGenerator";
-import FlashcardList from "@/components/flashcards/FlashcardList";
-import FlashcardEditor from "@/components/flashcards/FlashcardEditor";
 import { useRouter } from "next/navigation";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 import { useStudySessionStore } from "@/store/studySession-store/studySession-store";
-import { useUserStore } from "@/store/user-store/user-store";
+import { useSocket } from "@/context/socket";
+import { useSession } from "next-auth/react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import io from "socket.io-client";
+import { toast } from "sonner";
+import { useApi } from "@/lib/api";
+import AIGenerator from "@/components/flashcards/AIGenerator";
+import FlashcardList from "@/components/flashcards/FlashcardList";
+import FlashcardEditor from "@/components/flashcards/FlashcardEditor";
 import { FlashCard } from "@/components/flashcards/FlashCard";
-
 import Link from "next/link";
 import Stats from "@/components/flashcards/stats";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion, AnimatePresence } from "framer-motion";
-import { useApi } from "@/lib/api";
-import { toast } from "sonner";
 import SpacedStudyMode from "@/components/flashcards/SpacedStudyMode";
 import Agent from "@/components/agent/Agent";
 import NotesList from "@/components/notes/NotesList";
@@ -47,12 +48,19 @@ export default function CollectionPage() {
   const { activeWorkspace, updateActiveWorkspace, workspaces } =
     useSidebarStore();
   const { updateStudySession } = useStudySessionStore();
-  const { user } = useUserStore();
+
+  const api = useApi();
+
+  const socket = useSocket();
+
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const [collection, setCollection] = useState(null);
   const [workspace, setWorkspace] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
+  const [activeUsers, setActiveUsers] = useState([]);
   const [flashcardsDataBD, setFlashcardsDataBD] = useState(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState("stats");
@@ -66,8 +74,6 @@ export default function CollectionPage() {
   const [uploadingFiles, setUploadingFiles] = useState(new Set());
   const [notes, setNotes] = useState([]);
   const fileInputRef = useRef(null);
-
-  const api = useApi();
 
   useEffect(() => {
     setIsHydrated(true);
@@ -108,7 +114,7 @@ export default function CollectionPage() {
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading collection:", error);
-        toast.error("Error loading collection");
+        toast.error("Error al cargar la colección");
         setIsLoading(false);
       }
     };
@@ -136,6 +142,115 @@ export default function CollectionPage() {
       loadNotes();
     }
   }, [collectionId]);
+
+  useEffect(() => {
+    if (!user || !collection?.id) return;
+
+    // Join collection room
+    socket.emit(
+      "join_collection",
+      parseInt(workspaceId),
+      parseInt(collection.id),
+      {
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      }
+    );
+
+    // Cleanup function
+    return () => {
+      console.log("Leaving collection:", collection.id);
+      if (collection?.id) {
+        socket.emit(
+          "leave_collection",
+          parseInt(workspaceId),
+          parseInt(collection.id)
+        );
+      }
+    };
+  }, [collection?.id, user, workspaceId, socket]);
+
+  // Listen for active users updates
+  useEffect(() => {
+    if (!socket || !collection?.id) return;
+
+    const handleCollectionUsersUpdate = (data) => {
+      console.log("Collection users updated:", data);
+      if (data.collectionId === parseInt(collection.id)) {
+        setActiveUsers(data.users.filter((u) => u.email !== user?.email));
+      }
+    };
+
+    const handleUserJoinCollection = (data) => {
+      console.log("User joined collection:", data);
+      if (
+        data.collectionId === parseInt(collection.id) &&
+        data.user.email !== user?.email
+      ) {
+        toast.custom(
+          (t) => (
+            <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/50 dark:border-green-800">
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={data.user.image || null}
+                  alt={data.user.name}
+                />
+                <AvatarFallback>
+                  {data.user.name?.charAt(0)?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-green-800 dark:text-green-200">
+                {data.user.name || data.user.email} se ha unido a la colección
+              </span>
+            </div>
+          ),
+          { duration: 3000 }
+        );
+      }
+    };
+
+    const handleUserLeaveCollection = (data) => {
+      console.log("User left collection:", data);
+      if (
+        data.collectionId === parseInt(collection.id) &&
+        data.user.email !== user?.email
+      ) {
+        toast.custom(
+          (t) => (
+            <div className="flex items-center gap-2 p-4 bg-orange-50 border border-orange-200 rounded-lg dark:bg-orange-900/50 dark:border-orange-800">
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={data.user.image || null}
+                  alt={data.user.name}
+                />
+                <AvatarFallback>
+                  {data.user.name?.charAt(0)?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-orange-800 dark:text-orange-200">
+                {data.user.name || data.user.email} ha abandonado la colección
+              </span>
+            </div>
+          ),
+          { duration: 3000 }
+        );
+      }
+    };
+
+    socket.on("collection_users_updated", handleCollectionUsersUpdate);
+    socket.on("user_entered_collection", handleUserJoinCollection);
+    socket.on("user_left_collection", handleUserLeaveCollection);
+
+    // Request initial state
+    socket.emit("get_collections_users", parseInt(workspaceId));
+
+    return () => {
+      socket.off("collection_users_updated", handleCollectionUsersUpdate);
+      socket.off("user_entered_collection", handleUserJoinCollection);
+      socket.off("user_left_collection", handleUserLeaveCollection);
+    };
+  }, [socket, collection?.id, user?.email, workspaceId]);
 
   const fetchFlashcardsData = useCallback(
     async (collectionId) => {
@@ -364,7 +479,7 @@ export default function CollectionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen">
       <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-black/70 border-b border-zinc-200 dark:border-zinc-800">
         <div className="container min-w-full mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-2">
@@ -382,91 +497,74 @@ export default function CollectionPage() {
             </div>
 
             <div className="flex items-center justify-between gap-4">
-              <button
-                onClick={() => setOpenEditor(true)}
-                className="group relative inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400 px-6 py-3 text-sm font-medium text-white shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/35 active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:shadow-emerald-500/15 dark:hover:shadow-emerald-500/25 dark:focus:ring-offset-zinc-900 overflow-hidden"
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></span>
-                <div className="relative flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="transition-transform duration-300 group-hover:rotate-180"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="M12 5v14" />
-                  </svg>
-                  <span className="relative bg-gradient-to-r from-white to-white bg-clip-text font-semibold tracking-wide">
-                    Añadir Flashcard
-                  </span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="transition-transform duration-300 group-hover:translate-x-1"
-                  >
-                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                  </svg>
-                </div>
-              </button>
-              <button
-                onClick={() => setIsAIDialogOpen(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-sky-500/25 transition-all hover:shadow-xl hover:shadow-sky-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 dark:shadow-sky-500/15 dark:hover:shadow-sky-500/25 dark:focus:ring-offset-zinc-900"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-sparkles"
+              <div className="flex items-center justify-between gap-3">
+                {/* Botón Añadir Flashcard */}
+                <button
+                  onClick={() => setOpenEditor(true)}
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-medium text-zinc-950 shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 transition duration-300 hover:bg-zinc-50 hover:shadow-zinc-800/10 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-700/50 dark:hover:bg-zinc-700/70 dark:hover:text-zinc-50"
                 >
-                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-                  <path d="M5 3v4" />
-                  <path d="M19 17v4" />
-                  <path d="M3 5h4" />
-                  <path d="M17 19h4" />
-                </svg>
-                Generar con IA
-              </button>
-              <button
-                onClick={() => {
-                  setStudyMode("FREE");
-                  setIsStudyDialogOpen(true);
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/25 transition-all hover:shadow-xl hover:shadow-blue-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:shadow-blue-500/15 dark:hover:shadow-blue-500/25 dark:focus:ring-offset-zinc-900"
-              >
-                <Play className="h-5 w-5" />
-                Práctica Libre
-              </button>
-              <button
-                onClick={() => {
-                  setStudyMode("SPACED");
-                  setIsStudyDialogOpen(true);
-                }}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-500 to-teal-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-green-500/25 transition-all hover:shadow-xl hover:shadow-green-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 dark:shadow-green-500/15 dark:hover:shadow-green-500/25 dark:focus:ring-offset-zinc-900"
-              >
-                <Clock className="h-5 w-5" />
-                Repaso Espaciado
-              </button>
+                  <Plus className="h-4 w-4" />
+                  <span className="font-medium">Nueva Flashcard</span>
+                </button>
+
+                {/* Botón IA */}
+                <button
+                  onClick={() => setIsAIDialogOpen(true)}
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 px-4 text-sm font-medium text-white shadow-md shadow-indigo-500/20 transition duration-300 hover:from-indigo-400 hover:to-indigo-500 hover:shadow-indigo-500/30 dark:from-indigo-400 dark:to-indigo-500 dark:shadow-indigo-400/20 dark:hover:from-indigo-300 dark:hover:to-indigo-400"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="transition-transform duration-300 group-hover:rotate-180"
+                    >
+                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                      <path d="M5 3v4" />
+                      <path d="M19 17v4" />
+                      <path d="M3 5h4" />
+                      <path d="M17 19h4" />
+                    </svg>
+                    <span className="font-medium">Generar con IA</span>
+                  </div>
+                </button>
+
+                <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700/50" />
+
+                {/* Botón Práctica Libre */}
+                <button
+                  onClick={() => {
+                    setStudyMode("FREE");
+                    setIsStudyDialogOpen(true);
+                  }}
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 px-4 text-sm font-medium text-white shadow-md shadow-emerald-500/20 transition duration-300 hover:from-emerald-400 hover:to-emerald-500 hover:shadow-emerald-500/30 dark:from-emerald-400 dark:to-emerald-500 dark:shadow-emerald-400/20 dark:hover:from-emerald-300 dark:hover:to-emerald-400"
+                >
+                  <div className="flex items-center gap-2">
+                    <Play className="h-4 w-4" />
+                    <span className="font-medium">Práctica Libre</span>
+                  </div>
+                </button>
+
+                {/* Botón Repaso Espaciado */}
+                <button
+                  onClick={() => {
+                    setStudyMode("SPACED");
+                    setIsStudyDialogOpen(true);
+                  }}
+                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-violet-500 to-violet-600 px-4 text-sm font-medium text-white shadow-md shadow-violet-500/20 transition duration-300 hover:from-violet-400 hover:to-violet-500 hover:shadow-violet-500/30 dark:from-violet-400 dark:to-violet-500 dark:shadow-violet-400/20 dark:hover:from-violet-300 dark:hover:to-violet-400"
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span className="font-medium">Repaso Espaciado</span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -475,7 +573,7 @@ export default function CollectionPage() {
       <div className="container min-w-full mx-auto px-6 pt-4 ">
         <div className="flex justify-center">
           <Tabs defaultValue="flashcards" className="w-full max-w-[full]">
-            <TabsList className="inline-flex h-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm p-1 text-zinc-500 dark:text-zinc-400 mx-auto mb-8 border border-zinc-200/20 dark:border-zinc-800/20 shadow-xl shadow-indigo-500/5">
+            <TabsList className="inline-flex h-12 items-center justify-center rounded-full  mx-auto mb-8 border    dark:border-zinc-800/20 shadow-xl shadow-indigo-500/5">
               <TabsTrigger
                 value="flashcards"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/50 dark:ring-offset-zinc-950 dark:focus-visible:ring-zinc-300 dark:data-[state=active]:shadow-lg"
@@ -616,81 +714,84 @@ export default function CollectionPage() {
             </TabsContent>
 
             <TabsContent value="stats">
-              <div className="rounded-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-8 shadow-xl shadow-indigo-500/5">
+              <div className="rounded-2xl bg-gradient-to-br from-white/50 to-white/30 dark:from-zinc-900/50 dark:to-zinc-900/30 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-8 shadow-xl shadow-indigo-500/5">
                 <div className="min-w-full">
                   <div className="space-y-8">
                     <div className="grid grid-cols-3 gap-6">
                       {/* Actividad Reciente */}
-                      <div className="group rounded-2xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 p-6 border border-indigo-100/50 dark:border-indigo-900/50 transition-all hover:shadow-lg hover:shadow-indigo-500/10">
-                        <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-full bg-indigo-500/10 p-2.5">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="20"
-                              height="20"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="text-indigo-500"
-                            >
-                              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                              <path d="M21 3v5h-5" />
-                            </svg>
-                          </div>
-                          <h3 className="text-lg font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
-                            Actividad Reciente
-                          </h3>
-                        </div>
-                        <div className="space-y-6">
-                          <div>
-                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-                              Creadas hoy
-                            </p>
-                            <div className="flex items-baseline gap-2">
-                              <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                                {flashcardsDataBD?.creadasHoy || 0}
-                              </p>
-                              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                flashcards
-                              </p>
+                      <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50/80 via-violet-50/80 to-purple-50/80 dark:from-indigo-950/30 dark:via-violet-950/30 dark:to-purple-950/30 p-6 border border-indigo-100/50 dark:border-indigo-900/50 shadow-lg shadow-indigo-500/5 hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 hover:scale-[1.02]">
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-violet-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="relative">
+                          <div className="flex items-center gap-3 mb-6">
+                            <div className="rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 p-2.5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-white"
+                              >
+                                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+                                <path d="M21 3v5h-5" />
+                              </svg>
                             </div>
+                            <h3 className="text-lg font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400 bg-clip-text text-transparent">
+                              Actividad Reciente
+                            </h3>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-                              Últimos 7 días
-                            </p>
-                            <div className="flex items-baseline gap-2">
-                              <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                                {flashcardsDataBD?.creadasUltimos7Dias || 0}
+                          <div className="space-y-6">
+                            <div>
+                              <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                                Creadas hoy
                               </p>
-                              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                flashcards
-                              </p>
+                              <div className="flex items-baseline gap-2">
+                                <p className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400 bg-clip-text text-transparent">
+                                  {flashcardsDataBD?.creadasHoy || 0}
+                                </p>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                  flashcards
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-                              Últimos 30 días
-                            </p>
-                            <div className="flex items-baseline gap-2">
-                              <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                                {flashcardsDataBD?.creadasUltimos30Dias || 0}
+                            <div>
+                              <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                                Últimos 7 días
                               </p>
-                              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                flashcards
+                              <div className="flex items-baseline gap-2">
+                                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                                  {flashcardsDataBD?.creadasUltimos7Dias || 0}
+                                </p>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                  flashcards
+                                </p>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+                                Últimos 30 días
                               </p>
+                              <div className="flex items-baseline gap-2">
+                                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                                  {flashcardsDataBD?.creadasUltimos30Dias || 0}
+                                </p>
+                                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                  flashcards
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Estado General */}
-                      <div className="group rounded-2xl bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-950/30 dark:to-fuchsia-950/30 p-6 border border-purple-100/50 dark:border-purple-900/50 transition-all hover:shadow-lg hover:shadow-purple-500/10">
+                      <div className="group rounded-2xl bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-950/30 dark:to-fuchsia-950/30 p-6 border border-purple-100/50 dark:border-purple-900/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 hover:scale-[1.02]">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-full bg-purple-500/10 p-2.5">
+                          <div className="rounded-full bg-purple-500/10 p-2.5 transition-all duration-300 group-hover:bg-purple-500/20 group-hover:scale-110">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="20"
@@ -701,13 +802,13 @@ export default function CollectionPage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-purple-500"
+                              className="text-purple-500 transition-all duration-300 group-hover:rotate-12"
                             >
                               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                               <path d="M21 3v5h-5" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-500 to-fuchsia-500 bg-clip-text text-transparent">
+                          <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-500 to-fuchsia-500 bg-clip-text text-transparent relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-gradient-to-r after:from-purple-500 after:to-fuchsia-500 after:transition-all after:duration-300 group-hover:after:w-full">
                             Estado General
                           </h3>
                         </div>
@@ -726,7 +827,8 @@ export default function CollectionPage() {
                                   {estado.count}
                                 </p>
                                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                  flashcards ({Math.round(estado.porcentaje)}%)
+                                  flashcards ({Math.round(estado.porcentaje)}
+                                  %)
                                 </p>
                               </div>
                             </div>
@@ -735,9 +837,9 @@ export default function CollectionPage() {
                       </div>
 
                       {/* Progreso */}
-                      <div className="group rounded-2xl bg-gradient-to-br from-fuchsia-50 to-pink-50 dark:from-fuchsia-950/30 dark:to-pink-950/30 p-6 border border-fuchsia-100/50 dark:border-fuchsia-900/50 transition-all hover:shadow-lg hover:shadow-fuchsia-500/10">
+                      <div className="group rounded-2xl bg-gradient-to-br from-fuchsia-50 to-pink-50 dark:from-fuchsia-950/30 dark:to-pink-950/30 p-6 border border-fuchsia-100/50 dark:border-fuchsia-900/50 transition-all duration-300 hover:shadow-lg hover:shadow-fuchsia-500/10 hover:scale-[1.02]">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-full bg-fuchsia-500/10 p-2.5">
+                          <div className="rounded-full bg-fuchsia-500/10 p-2.5 transition-all duration-300 group-hover:bg-fuchsia-500/20 group-hover:scale-110">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="20"
@@ -748,7 +850,7 @@ export default function CollectionPage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-fuchsia-500"
+                              className="text-fuchsia-500 transition-all duration-300 group-hover:rotate-12"
                             >
                               <path d="M12 20v-6" />
                               <path d="M12 14v-6" />
@@ -759,7 +861,7 @@ export default function CollectionPage() {
                               <path d="M14 5c3.87 0 7 3.13 7 7" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold bg-gradient-to-r from-fuchsia-500 to-pink-500 bg-clip-text text-transparent">
+                          <h3 className="text-lg font-semibold bg-gradient-to-r from-fuchsia-500 to-pink-500 bg-clip-text text-transparent relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-gradient-to-r after:from-fuchsia-500 after:to-pink-500 after:transition-all after:duration-300 group-hover:after:w-full">
                             Nivel de Conocimiento
                           </h3>
                         </div>
@@ -779,7 +881,8 @@ export default function CollectionPage() {
                                     {nivel.count}
                                   </p>
                                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                    flashcards ({Math.round(nivel.porcentaje)}%)
+                                    flashcards ({Math.round(nivel.porcentaje)}
+                                    %)
                                   </p>
                                 </div>
                               </div>
@@ -792,9 +895,9 @@ export default function CollectionPage() {
                     {/* Segunda fila */}
                     <div className="grid grid-cols-3 gap-6">
                       {/* Revisiones */}
-                      <div className="group rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 p-6 border border-emerald-100/50 dark:border-emerald-900/50 transition-all hover:shadow-lg hover:shadow-emerald-500/10">
+                      <div className="group rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 p-6 border border-emerald-100/50 dark:border-emerald-900/50 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10 hover:scale-[1.02]">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-full bg-emerald-500/10 p-2.5">
+                          <div className="rounded-full bg-emerald-500/10 p-2.5 transition-all duration-300 group-hover:bg-emerald-500/20 group-hover:scale-110">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="20"
@@ -805,13 +908,13 @@ export default function CollectionPage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-emerald-500"
+                              className="text-emerald-500 transition-all duration-300 group-hover:rotate-12"
                             >
                               <path d="M3 2v6h6" />
                               <path d="M3 13a9 9 0 1 0 3-7.7L3 8" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+                          <h3 className="text-lg font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-gradient-to-r after:from-emerald-500 after:to-teal-500 after:transition-all after:duration-300 group-hover:after:w-full">
                             Revisiones
                           </h3>
                         </div>
@@ -859,9 +962,9 @@ export default function CollectionPage() {
                       </div>
 
                       {/* Rendimiento */}
-                      <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-6 border border-amber-100/50 dark:border-amber-900/50 transition-all hover:shadow-lg hover:shadow-amber-500/10">
+                      <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-6 border border-amber-100/50 dark:border-amber-900/50 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/10 hover:scale-[1.02]">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-full bg-amber-500/10 p-2.5">
+                          <div className="rounded-full bg-amber-500/10 p-2.5 transition-all duration-300 group-hover:bg-amber-500/20 group-hover:scale-110">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="20"
@@ -872,34 +975,36 @@ export default function CollectionPage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-amber-500"
+                              className="text-amber-500 transition-all duration-300 group-hover:rotate-12"
                             >
                               <path d="m12 14 4-4" />
                               <path d="M3.34 19a10 10 0 1 1 17.32 0" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+                          <h3 className="text-lg font-semibold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-gradient-to-r after:from-amber-500 after:to-orange-500 after:transition-all after:duration-300 group-hover:after:w-full">
                             Rendimiento
                           </h3>
                         </div>
                         <div className="space-y-6">
-                          <div>
+                          <div className="transform transition-all duration-300 hover:-translate-y-1">
                             <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
                               Porcentaje de éxito
                             </p>
                             <div className="flex items-baseline gap-2">
-                              <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+                              <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 relative">
                                 {Math.round(
                                   flashcardsDataBD?.porcentajeExito || 0
                                 )}
-                                %
+                                <span className="text-2xl text-amber-500">
+                                  %
+                                </span>
                               </p>
                               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                                 de aciertos
                               </p>
                             </div>
                           </div>
-                          <div>
+                          <div className="transform transition-all duration-300 hover:-translate-y-1">
                             <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
                               Racha de estudio
                             </p>
@@ -912,7 +1017,7 @@ export default function CollectionPage() {
                               </p>
                             </div>
                           </div>
-                          <div>
+                          <div className="transform transition-all duration-300 hover:-translate-y-1">
                             <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
                               Mejor racha
                             </p>
@@ -929,9 +1034,9 @@ export default function CollectionPage() {
                       </div>
 
                       {/* Tiempo de Estudio */}
-                      <div className="group rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/30 dark:to-blue-950/30 p-6 border border-sky-100/50 dark:border-sky-900/50 transition-all hover:shadow-lg hover:shadow-sky-500/10">
+                      <div className="group rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/30 dark:to-blue-950/30 p-6 border border-sky-100/50 dark:border-sky-900/50 transition-all duration-300 hover:shadow-lg hover:shadow-sky-500/10 hover:scale-[1.02]">
                         <div className="flex items-center gap-3 mb-6">
-                          <div className="rounded-full bg-sky-500/10 p-2.5">
+                          <div className="rounded-full bg-sky-500/10 p-2.5 transition-all duration-300 group-hover:bg-sky-500/20 group-hover:scale-110">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="20"
@@ -942,18 +1047,18 @@ export default function CollectionPage() {
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              className="text-sky-500"
+                              className="text-sky-500 transition-all duration-300 group-hover:rotate-12"
                             >
                               <circle cx="12" cy="12" r="10" />
                               <polyline points="12 6 12 12 16 14" />
                             </svg>
                           </div>
-                          <h3 className="text-lg font-semibold bg-gradient-to-r from-sky-500 to-blue-500 bg-clip-text text-transparent">
+                          <h3 className="text-lg font-semibold bg-gradient-to-r from-sky-500 to-blue-500 bg-clip-text text-transparent relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-gradient-to-r after:from-sky-500 after:to-blue-500 after:transition-all after:duration-300 group-hover:after:w-full">
                             Tiempo de Estudio
                           </h3>
                         </div>
                         <div className="space-y-6">
-                          <div>
+                          <div className="transform transition-all duration-300 hover:-translate-y-1">
                             <p className="text-sm font-medium text-sky-600 dark:text-sky-400 mb-1">
                               Tiempo total
                             </p>
@@ -969,7 +1074,7 @@ export default function CollectionPage() {
                               </p>
                             </div>
                           </div>
-                          <div>
+                          <div className="transform transition-all duration-300 hover:-translate-y-1">
                             <p className="text-sm font-medium text-sky-600 dark:text-sky-400 mb-1">
                               Promedio por sesión
                             </p>
@@ -985,7 +1090,7 @@ export default function CollectionPage() {
                               </p>
                             </div>
                           </div>
-                          <div>
+                          <div className="transform transition-all duration-300 hover:-translate-y-1">
                             <p className="text-sm font-medium text-sky-600 dark:text-sky-400 mb-1">
                               Sesiones totales
                             </p>
@@ -1007,185 +1112,296 @@ export default function CollectionPage() {
             </TabsContent>
 
             <TabsContent value="resources">
-              <div className="rounded-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-8 shadow-xl shadow-indigo-500/5">
-                <div className="min-w-full">
-                  <div className="flex flex-col gap-6">
-                    {/* Drag and drop area */}
-                    <div
-                      className="flex items-center justify-center w-full"
-                      onDrop={handleDrop}
-                      onDragOver={handleDragOver}
+              <div className="rounded-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-6 shadow-xl shadow-indigo-500/5">
+                {/* Área de subida de archivos */}
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  className="mb-8 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-8 text-center transition-colors duration-200 hover:border-indigo-500/50 dark:hover:border-indigo-400/50"
+                >
+                  <div className="mx-auto flex max-w-[420px] flex-col items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-10 w-10 text-zinc-400 dark:text-zinc-600 mb-4"
                     >
-                      <label
-                        htmlFor="dropzone-file"
-                        className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-zinc-50 dark:bg-zinc-800/50 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
+                      <path d="M12 12v9" />
+                      <path d="m16 16-4-4-4 4" />
+                    </svg>
+                    <h3 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                      Arrastra tus archivos aquí
+                    </h3>
+                    <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+                      o haz clic para seleccionar archivos
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      onChange={(e) =>
+                        handleFileUpload(Array.from(e.target.files))
+                      }
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
                       >
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          {isUploading ? (
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-500"></div>
-                              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                Subiendo archivos...
-                              </p>
-                            </div>
-                          ) : (
-                            <>
-                              <svg
-                                className="w-10 h-10 mb-3 text-zinc-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                ></path>
-                              </svg>
-                              <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
-                                <span className="font-semibold">
-                                  Haz click para subir
-                                </span>{" "}
-                                o arrastra y suelta
-                              </p>
-                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                Cualquier tipo de archivo
-                              </p>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          ref={fileInputRef}
-                          id="dropzone-file"
-                          type="file"
-                          className="hidden"
-                          multiple
-                          onChange={(e) => handleFileUpload(e.target.files)}
-                        />
-                      </label>
-                    </div>
-
-                    {/* Files grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* Show uploading files first */}
-                      {Array.from(uploadingFiles).map((fileName) => (
-                        <div
-                          key={fileName}
-                          className="flex flex-col gap-2 p-4 rounded-lg bg-white/50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="p-2 rounded-md bg-indigo-100 dark:bg-indigo-900 flex-shrink-0">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
-                                  {fileName}
-                                </p>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                  Subiendo...
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* Show uploaded files */}
-                      {resources.map((resource) => (
-                        <div
-                          key={resource.id}
-                          className="flex flex-col gap-2 p-4 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="p-2 rounded-md bg-indigo-100 dark:bg-indigo-900 flex-shrink-0">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="20"
-                                  height="20"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="text-indigo-600 dark:text-indigo-400"
-                                >
-                                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                                  <polyline points="14 2 14 8 20 8" />
-                                </svg>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p
-                                  className="font-medium text-zinc-900 dark:text-zinc-100 truncate"
-                                  title={resource.fileName}
-                                >
-                                  {resource.fileName}
-                                </p>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                  {formatFileSize(resource.fileSize)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <button
-                                onClick={() => handleDownload(resource.id)}
-                                className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-full transition-colors"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="20"
-                                  height="20"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="text-zinc-500 dark:text-zinc-400"
-                                >
-                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                  <polyline points="7 10 12 15 17 10" />
-                                  <line x1="12" y1="15" x2="12" y2="3" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDelete(resource.id)}
-                                className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-full transition-colors"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="20"
-                                  height="20"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="text-red-500"
-                                >
-                                  <path d="M3 6h18" />
-                                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        <path d="M5 12h14" />
+                        <path d="M12 5v14" />
+                      </svg>
+                      Seleccionar Archivos
+                    </button>
                   </div>
                 </div>
+
+                {/* Lista de recursos */}
+                <div className="space-y-4">
+                  {/* Encabezado de la lista */}
+                  <div className="flex items-center justify-between px-4 py-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    <span>Nombre</span>
+                    <span>Tamaño</span>
+                  </div>
+
+                  {/* Recursos */}
+                  {resources.map((resource) => (
+                    <div
+                      key={`resource-container-${resource.id}`}
+                      className="divide-y divide-zinc-200 dark:divide-zinc-800 rounded-xl bg-white dark:bg-zinc-900 shadow-sm"
+                    >
+                      <div
+                        key={`resource-item-${resource.id}`}
+                        className="group flex items-center justify-between px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Icono basado en el tipo de archivo */}
+                          <div className="rounded-lg bg-indigo-50 dark:bg-indigo-950/50 p-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="text-indigo-500 dark:text-indigo-400"
+                            >
+                              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L14.5 2z" />
+                              <path d="M15 3v6h6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                              {resource.fileName}
+                            </p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              Subido {new Date().toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                            {formatFileSize(resource.fileSize)}
+                          </span>
+                          <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                            <button
+                              onClick={() => handleDownload(resource.id)}
+                              className="rounded-lg p-1 text-zinc-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-zinc-400 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-400"
+                              title="Descargar"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(resource.id)}
+                              className="rounded-lg p-1 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-950/50 dark:hover:text-red-400"
+                              title="Eliminar"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M3 6h18" />
+                                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Estado vacío */}
+                  {resources.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-12 w-12 text-zinc-400 dark:text-zinc-600 mb-4"
+                      >
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L14.5 2z" />
+                        <path d="M15 3v6h6" />
+                      </svg>
+                      <h3 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                        No hay recursos
+                      </h3>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        Sube archivos para empezar
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Indicador de carga */}
+                {isUploading && (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                      <span>Subiendo archivos...</span>
+                    </div>
+                    {Array.from(uploadingFiles).map((fileName) => (
+                      <div
+                        key={fileName}
+                        className="mt-2 text-sm text-zinc-500 dark:text-zinc-400"
+                      >
+                        {fileName}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="notes">
               <div className="rounded-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 p-8 shadow-xl shadow-indigo-500/5">
-                <NotesList notes={notes} onNoteDeleted={handleNoteDeleted} />
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-2.5">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-indigo-500"
+                      >
+                        <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
+                        <path d="M15 3v6h6" />
+                      </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+                      Notas de Estudio
+                    </h2>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 px-4 text-sm font-medium text-white shadow-md shadow-indigo-500/20 transition duration-300 hover:from-indigo-400 hover:to-indigo-500 hover:shadow-indigo-500/30">
+                        <Plus className="h-4 w-4" />
+                        <span className="font-medium">Nueva Nota</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Nueva Nota</DialogTitle>
+                        <DialogDescription>
+                          Crea una nueva nota para tu colección
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Agent
+                        collectionId={collection.id}
+                        onNoteAdded={(newNote) => setNotes([...notes, newNote])}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div>
+                  <NotesList notes={notes} onNoteDeleted={handleNoteDeleted} />
+                </div>
+
+                {notes.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-4 mb-4">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-indigo-500"
+                      >
+                        <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
+                        <path d="M15 3v6h6" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
+                      No hay notas aún
+                    </h3>
+                    <p className="text-zinc-500 dark:text-zinc-400 max-w-sm">
+                      ¡Comienza a crear notas para organizar mejor tu estudio!
+                      Puedes usar el botón "Nueva Nota" para empezar.
+                    </p>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

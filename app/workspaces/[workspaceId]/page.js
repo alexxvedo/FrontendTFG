@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,17 +27,26 @@ import { InviteUserDialog } from "@/components/workspace/invite-user-dialog";
 import { WorkspaceUsersList } from "@/components/workspace/workspace-users-list";
 import { UserPlus } from "lucide-react";
 
+import { useSocket } from "@/context/socket"; // Usamos el hook para acceder a la conexión Socket
+
 export default function WorkspacePage({ params }) {
-  const { workspaceId } = params;
+  const resolvedParams = use(params);
+  const { workspaceId } = resolvedParams;
   const [collections, setCollections] = useState([]);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [loading, setLoading] = useState(true);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+
+  const socket = useSocket(); // Accedemos al socket usando el hook
+
+  const [userActivity, setUserActivity] = useState(""); // Estado para la actividad del usuario
+
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
   const router = useRouter();
   const api = useApi();
 
   useEffect(() => {
+    if (!socket) return; // Asegúrate de que la conexión esté disponible
     const loadCollections = async () => {
       try {
         const response = await api.collections.listByWorkspace(workspaceId);
@@ -53,6 +62,17 @@ export default function WorkspacePage({ params }) {
     if (workspaceId) {
       loadCollections();
     }
+
+    // Escuchar eventos de actividad del servidor
+    socket.on("activity_update", (data) => {
+      console.log("Actividad actualizada: ", data);
+      // Puedes actualizar la UI en tiempo real con los datos recibidos
+      setUserActivity(data.activity); // Por ejemplo, actualizar el estado
+    });
+
+    return () => {
+      socket.off("activity_update"); // Limpiar el socket cuando el componente se desmonte
+    };
   }, [workspaceId]);
 
   const handleCreateCollection = async (e) => {
@@ -68,14 +88,16 @@ export default function WorkspacePage({ params }) {
       setCollections([...collections, response.data]);
       setNewCollectionName("");
       toast.success("Collection created successfully");
+
+      // Enviar la actividad de usuario a través de Socket.IO
+      socket.emit("user_activity", {
+        userId: 1, // Debes obtener el ID del usuario actual
+        activity: `Creó una nueva colección: ${newCollectionName}`,
+      });
     } catch (error) {
       console.error("Error creating collection:", error);
       toast.error("Error creating collection");
     }
-  };
-
-  const handleInviteSuccess = () => {
-    // Actualizar la lista de usuarios
   };
 
   if (loading) {
@@ -118,6 +140,12 @@ export default function WorkspacePage({ params }) {
             Invitar Usuario
           </Button>
         </div>
+
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold mb-4">User Activity:</h2>
+          <p>{userActivity}</p>{" "}
+          {/* Aquí se mostrará la actividad recibida en tiempo real */}
+        </div>
       </div>
 
       <PendingInvitations />
@@ -125,9 +153,9 @@ export default function WorkspacePage({ params }) {
       <div className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold mb-4">Usuarios del Workspace</h2>
-          <WorkspaceUsersList 
-            workspaceId={workspaceId} 
-            onUserRemoved={handleInviteSuccess} 
+          <WorkspaceUsersList
+            workspaceId={workspaceId}
+            onUserRemoved={handleInviteSuccess}
           />
         </div>
       </div>

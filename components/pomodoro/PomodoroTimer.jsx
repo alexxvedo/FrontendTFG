@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Timer, Play, Pause, Settings } from "lucide-react";
-import cn from "classnames";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_WORK_TIME = 25;
 const DEFAULT_BREAK_TIME = 5;
@@ -79,17 +79,21 @@ export default function PomodoroTimer() {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   return (
     <div className="flex flex-col items-center space-y-4">
       <div className="flex items-center gap-4">
-        <div className={cn(
-          "text-4xl font-bold font-mono",
-          isBreak && "text-green-500",
-          !isBreak && isRunning && "text-blue-500"
-        )}>
+        <div
+          className={cn(
+            "text-4xl font-bold font-mono",
+            isBreak && "text-green-500",
+            !isBreak && isRunning && "text-blue-500"
+          )}
+        >
           {formatTime(timeLeft)}
         </div>
         <div className="flex gap-2">
@@ -99,7 +103,11 @@ export default function PomodoroTimer() {
             onClick={isRunning ? pauseTimer : startTimer}
             className="rounded-full hover:bg-accent"
           >
-            {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {isRunning ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
           </Button>
           <Button
             variant="outline"
@@ -159,10 +167,12 @@ export default function PomodoroTimer() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => {
-              setShowSettings(false);
-              resetTimer();
-            }}>
+            <Button
+              onClick={() => {
+                setShowSettings(false);
+                resetTimer();
+              }}
+            >
               Guardar
             </Button>
           </DialogFooter>
@@ -183,9 +193,7 @@ export default function PomodoroTimer() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={continueStudying}>
-              Continuar estudiando
-            </Button>
+            <Button onClick={continueStudying}>Continuar estudiando</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

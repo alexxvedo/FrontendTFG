@@ -1,21 +1,50 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useApi } from "@/lib/api";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 import { useCollectionStore } from "@/store/collections-store/collection-store";
-import { useApi } from "@/lib/api";
 import { toast } from "sonner";
 import { CollectionsList } from "@/components/collections/collections-list";
-import { useSession } from "next-auth/react";
+import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
+
+// Componente envoltorio que tiene acceso al contexto del socket
+function CollectionsListWithSocket({
+  collections,
+  onCollectionCreate,
+  onCollectionUpdate,
+  onCollectionDelete,
+  handleCollectionClick,
+}) {
+  const { usersInCollection } = useWorkspaceSocket();
+  
+  console.log("Users in collection from socket:", usersInCollection);
+
+  return (
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <CollectionsList
+        collections={collections}
+        onCollectionCreate={onCollectionCreate}
+        onCollectionUpdate={onCollectionUpdate}
+        onCollectionDelete={onCollectionDelete}
+        activeUsers={usersInCollection}
+        handleCollectionClick={handleCollectionClick}
+      />
+    </div>
+  );
+}
 
 export default function CollectionsPage() {
+  const { data: session } = useSession();
   const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const api = useApi();
 
   // Asegúrate de que session ya está cargada antes de continuar
-  const user = session?.user;
+  const userSession = session?.user;
   const workspaceId = Array.isArray(params.workspaceId)
     ? params.workspaceId[0]
     : params.workspaceId;
@@ -27,22 +56,30 @@ export default function CollectionsPage() {
 
   const [collections, setCollections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const api = useApi();
 
-  const fetchCollections = useCallback(async () => {
-    if (!workspaceId) return;
-
+  const fetchCollections = async () => {
     try {
-      setIsLoading(true);
       const response = await api.collections.listByWorkspace(workspaceId);
       setCollections(response.data);
     } catch (error) {
-      console.error("Error fetching collections:", error);
+      console.error("Error al cargar colecciones:", error);
       toast.error("Error loading collections");
     } finally {
       setIsLoading(false);
     }
-  }, [workspaceId]);
+  };
+
+  // Cargar colecciones al montar
+  useEffect(() => {
+    if (params.workspaceId) {
+      fetchCollections();
+    }
+  }, [params.workspaceId]);
+
+  const handleCollectionClick = (collectionId) => {
+    // Solo navegamos a la colección, el join se hará en la página de la colección
+    router.push(`/workspaces/${params.workspaceId}/collection/${collectionId}`);
+  };
 
   const handleCreateCollection = async (collectionData) => {
     if (!workspaceId) {
@@ -51,10 +88,12 @@ export default function CollectionsPage() {
       return;
     }
 
-    console.log("User que va a crear la collection: ", user);
-
     try {
-      await api.collections.create(workspaceId, collectionData, user.email);
+      await api.collections.create(
+        workspaceId,
+        collectionData,
+        userSession.email
+      );
       await fetchCollections();
       toast.success("Collection created successfully");
     } catch (error) {
@@ -107,10 +146,6 @@ export default function CollectionsPage() {
     }
   }, [activeWorkspace, workspaceId, router]);
 
-  useEffect(() => {
-    fetchCollections();
-  }, [fetchCollections]);
-
   if (!workspaceId) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -127,18 +162,17 @@ export default function CollectionsPage() {
     );
   }
 
-  if (!user) {
+  if (!userSession) {
     return <div>Loading...</div>;
   }
 
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <CollectionsList
-        collections={collections}
-        onCollectionCreate={handleCreateCollection}
-        onCollectionUpdate={handleUpdateCollection}
-        onCollectionDelete={handleDeleteCollection}
-      />
-    </div>
+    <CollectionsListWithSocket
+      collections={collections}
+      onCollectionCreate={handleCreateCollection}
+      onCollectionUpdate={handleUpdateCollection}
+      onCollectionDelete={handleDeleteCollection}
+      handleCollectionClick={handleCollectionClick}
+    />
   );
 }
