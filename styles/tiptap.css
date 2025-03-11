@@ -1,5 +1,13 @@
 /* TipTap Editor Styles */
 .tiptap {
+  position: relative;
+  min-height: calc(100vh - 200px);
+  background: transparent;
+
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  line-height: 1.7;
+  padding: 2rem 0;
+
   > * + * {
     margin-top: 0.75em;
   }
@@ -16,6 +24,7 @@
     margin-bottom: 0.5em;
     color: #1a1a1a;
     background: linear-gradient(to right, #4f46e5, #7c3aed);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
@@ -27,6 +36,7 @@
     margin-bottom: 0.5em;
     color: #1a1a1a;
     background: linear-gradient(to right, #6366f1, #8b5cf6);
+    background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
@@ -42,15 +52,15 @@
     padding: 0.2em 0.4em;
     border-radius: 0.3em;
     font-size: 0.9em;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
   }
 
   pre {
     background: #1a1a1a;
-    color: #FFF;
+    color: #fff;
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     margin: 1em 0;
 
     code {
@@ -92,7 +102,7 @@
       margin-bottom: 0.5em;
 
       &::before {
-        content: '';
+        content: "";
         position: absolute;
         left: -1.5em;
         top: 0.6em;
@@ -111,7 +121,7 @@
     li {
       margin-bottom: 0.5em;
       color: #4f46e5;
-      
+
       > * {
         color: inherit;
       }
@@ -129,7 +139,8 @@
 
 /* Dark mode adjustments */
 .dark .tiptap {
-  h1, h2 {
+  h1,
+  h2 {
     color: #f3f4f6;
   }
 
@@ -204,7 +215,8 @@
 
 /* Transitions */
 .tiptap * {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 /* Custom scrollbar */
@@ -229,4 +241,48 @@
 .tiptap-toolbar button:hover {
   transform: translateY(-1px);
   transition: transform 0.2s ease;
+}
+
+/* Collaborative cursors */
+.cursor-container {
+  position: relative;
+}
+
+.cursor-marker {
+  margin-left: -1px;
+  border-left: 2px solid var(--cursor-color, #000);
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+  animation: cursor-blink 1s infinite;
+}
+
+.user-selection {
+  display: inline;
+  pointer-events: none;
+  background-color: var(--selection-color, rgba(100, 100, 255, 0.3));
+}
+
+@keyframes cursor-blink {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  50%,
+  90% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Dark mode adjustments for cursors */
+.dark .cursor-marker {
+  background-color: #fff;
+}
+
+.dark .cursor-tooltip {
+  background-color: #374151;
+  color: #fff;
 }

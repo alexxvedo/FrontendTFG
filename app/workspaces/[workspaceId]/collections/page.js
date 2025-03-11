@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -20,19 +20,28 @@ function CollectionsListWithSocket({
   handleCollectionClick,
 }) {
   const { usersInCollection } = useWorkspaceSocket();
-  
-  console.log("Users in collection from socket:", usersInCollection);
 
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <CollectionsList
-        collections={collections}
-        onCollectionCreate={onCollectionCreate}
-        onCollectionUpdate={onCollectionUpdate}
-        onCollectionDelete={onCollectionDelete}
-        activeUsers={usersInCollection}
-        handleCollectionClick={handleCollectionClick}
-      />
+    <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+
+      {/* Floating orbs background effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
+      </div>
+
+      <div className="relative flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <CollectionsList
+          collections={collections}
+          onCollectionCreate={onCollectionCreate}
+          onCollectionUpdate={onCollectionUpdate}
+          onCollectionDelete={onCollectionDelete}
+          activeUsers={usersInCollection}
+          handleCollectionClick={handleCollectionClick}
+        />
+      </div>
     </div>
   );
 }
@@ -149,7 +158,9 @@ export default function CollectionsPage() {
   if (!workspaceId) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <div className="text-lg text-gray-500">No workspace selected</div>
+        <div className="text-lg text-muted-foreground dark:text-gray-400">
+          No workspace selected
+        </div>
       </div>
     );
   }
@@ -157,13 +168,17 @@ export default function CollectionsPage() {
   if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <div className="text-lg text-gray-500">Loading collections...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 dark:border-pink-500"></div>
       </div>
     );
   }
 
   if (!userSession) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 dark:border-pink-500"></div>
+      </div>
+    );
   }
 
   return (

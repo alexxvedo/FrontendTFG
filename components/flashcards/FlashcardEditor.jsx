@@ -451,12 +451,12 @@ export default function FlashcardEditor({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[900px] md:max-w-[1000px] bg-gradient-to-br from-white to-zinc-50/95 dark:from-zinc-900 dark:to-zinc-950/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 shadow-xl shadow-indigo-500/10"
+        className="sm:max-w-[900px] md:max-w-[1000px] bg-gradient-to-br from-white to-zinc-50/95 dark:from-zinc-900 dark:to-zinc-950/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 shadow-xl shadow-purple-500/10"
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
             {editingFlashcard ? "Editar Flashcard" : "Crear Nueva Flashcard"}
           </DialogTitle>
           <p className="text-zinc-600 dark:text-zinc-400">
@@ -497,7 +497,7 @@ export default function FlashcardEditor({
                     <Card
                       className={`p-4 cursor-pointer transition-all hover:shadow-md ${
                         editingFlashcard?.id === flashcard.id
-                          ? "ring-2 ring-emerald-500 shadow-lg"
+                          ? "ring-2 ring-purple-500 shadow-lg"
                           : "hover:scale-[1.02]"
                       }`}
                       onClick={() => startEditing(flashcard)}
@@ -524,7 +524,7 @@ export default function FlashcardEditor({
                 Pregunta
               </label>
               <div className="group relative">
-                <div className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20 blur transition duration-1000 group-hover:opacity-30 group-hover:duration-200"></div>
+                <div className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 opacity-20 blur transition duration-1000 group-hover:opacity-30 group-hover:duration-200"></div>
                 <div className="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-card overflow-hidden">
                   <MenuBar editor={questionEditor} />
                   <EditorContent editor={questionEditor} />
@@ -537,7 +537,7 @@ export default function FlashcardEditor({
                 Respuesta
               </label>
               <div className="group relative">
-                <div className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 opacity-20 blur transition duration-1000 group-hover:opacity-30 group-hover:duration-200"></div>
+                <div className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 opacity-20 blur transition duration-1000 group-hover:opacity-30 group-hover:duration-200"></div>
                 <div className="relative rounded-lg border border-zinc-200 dark:border-zinc-800 bg-card overflow-hidden">
                   <MenuBar editor={answerEditor} />
                   <EditorContent editor={answerEditor} />
@@ -553,7 +553,7 @@ export default function FlashcardEditor({
                   !answerEditor?.getText()?.trim() ||
                   isLoading
                 }
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/25 transition-all hover:shadow-xl hover:shadow-emerald-500/35 hover:translate-y-[-1px] active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/25 transition-all hover:shadow-xl hover:shadow-indigo-500/35 hover:translate-y-[-1px] active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -587,7 +587,7 @@ export default function FlashcardEditor({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="text-emerald-500"
+            className="text-purple-500"
           >
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="16" x2="12" y2="12" />

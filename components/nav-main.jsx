@@ -33,7 +33,6 @@ export function NavMain({ items, isCollapsed }) {
         const response = await api.collections.listByWorkspace(
           activeWorkspace.id
         );
-        console.log("Collections loaded:", response.data);
         setCollections(response.data || []);
       } catch (error) {
         console.error("Error loading collections:", error);

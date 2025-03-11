@@ -34,14 +34,11 @@ export default function WorkspacesPage() {
 
       try {
         if (!isLoaded || !session?.user) {
-          console.log("Usuario no autenticado o sesión no cargada");
           setIsLoading(false);
           return;
         }
 
         const user = session.user;
-
-        console.log("Usuario autenticado:", user, "id", user.email);
 
         try {
           const { data: workspaces } = await api.workspaces.listByUser(

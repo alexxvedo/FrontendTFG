@@ -70,7 +70,6 @@ export default function AIGenerator({ onClose }) {
     setIsLoading(true);
 
     try {
-      console.log("Enviando solicitud con activeCollection:", activeCollection);
       const { data: result } = await api.collections.generateAIFlashcards(
         activeCollection.id,
         {
@@ -85,8 +84,6 @@ export default function AIGenerator({ onClose }) {
           },
         }
       );
-
-      console.log("Respuesta del servidor:", result);
 
       if (!result.flashcards || result.flashcards.length === 0) {
         throw new Error("No se generaron flashcards válidas");

@@ -18,11 +18,11 @@ const FlashcardList = memo(({ flashcards }) => {
               layout
               className="h-[300px] group"
             >
-              <Card className="h-full overflow-hidden relative transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/10 dark:hover:shadow-indigo-400/10 hover:border-indigo-500/20 dark:hover:border-indigo-400/20 group-hover:translate-y-[-2px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/30 dark:to-purple-950/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <Card className="h-full overflow-hidden relative transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/10 dark:hover:shadow-pink-400/10 hover:border-purple-500/20 dark:hover:border-pink-400/20 group-hover:translate-y-[-2px]">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-950/30 dark:to-pink-950/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <CardContent className="p-6 h-full flex flex-col justify-between relative">
                   <div className="mb-4">
-                    <h3 className="font-medium mb-2 text-sm text-indigo-600 dark:text-indigo-400">
+                    <h3 className="font-medium mb-2 text-sm text-purple-600 dark:text-purple-400">
                       Pregunta
                     </h3>
                     <div
@@ -31,7 +31,7 @@ const FlashcardList = memo(({ flashcards }) => {
                     />
                   </div>
                   <div className="flex-1 min-h-0">
-                    <h3 className="font-medium mb-2 text-sm text-indigo-600 dark:text-indigo-400">
+                    <h3 className="font-medium mb-2 text-sm text-purple-600 dark:text-purple-400">
                       Respuesta
                     </h3>
                     <div

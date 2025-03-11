@@ -65,7 +65,6 @@ export default function WorkspacePage({ params }) {
 
     // Escuchar eventos de actividad del servidor
     socket.on("activity_update", (data) => {
-      console.log("Actividad actualizada: ", data);
       // Puedes actualizar la UI en tiempo real con los datos recibidos
       setUserActivity(data.activity); // Por ejemplo, actualizar el estado
     });

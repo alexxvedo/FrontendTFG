@@ -42,8 +42,8 @@ export function WorkspaceSwitcher() {
   const { isMobile } = useSidebar();
   const [workspaceName, setWorkspaceName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const session = useSession();
-  const user = session?.data.user;
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const api = useApi();
 
@@ -62,13 +62,10 @@ export function WorkspaceSwitcher() {
       if (!user?.id) return;
 
       try {
-        console.log("Loading workspaces for user:", user.email);
         const response = await api.workspaces.listByUser(user.email);
 
         // Solo actualizar si el componente sigue montado
         if (!mounted) return;
-
-        console.log("Workspaces loaded:", response.data);
 
         // Asegurarnos de que workspacesList es un array
         const safeWorkspacesList = Array.isArray(response.data)
@@ -109,7 +106,6 @@ export function WorkspaceSwitcher() {
   const handleWorkspaceChange = useCallback(
     async (workspace) => {
       try {
-        console.log("Changing workspace to:", workspace);
         // Primero actualizamos el estado para evitar que el router revierta el cambio
         updateActiveWorkspace(workspace);
 
@@ -132,8 +128,6 @@ export function WorkspaceSwitcher() {
         const newWorkspace = await api.workspaces.create(user.email, {
           name: workspaceName,
         });
-
-        console.log(newWorkspace.data);
 
         // Asegurarnos de que workspaces es un array antes de actualizarlo
         const currentWorkspaces = Array.isArray(workspaces) ? workspaces : [];
@@ -218,6 +212,7 @@ export function WorkspaceSwitcher() {
                   <DropdownMenuItem
                     key={workspace.id}
                     onClick={() => handleWorkspaceChange(workspace)}
+                    className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70"
                   >
                     {workspace.name}
                     {workspace.id === activeWorkspace?.id && (
@@ -228,18 +223,21 @@ export function WorkspaceSwitcher() {
               )}
               <DropdownMenuSeparator />
               <DialogTrigger asChild>
-                <DropdownMenuItem>
-                  <Plus className="mr-2 h-4 w-4" /> Create Workspace
+                <DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
+                  <Plus className="mr-2 h-4 w-4 text-blue-500 dark:text-purple-400" />{" "}
+                  Create Workspace
                 </DropdownMenuItem>
               </DialogTrigger>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px] bg-zinc-900/95 border border-purple-500/20 backdrop-blur-sm shadow-lg">
         <DialogHeader>
-          <DialogTitle>Create Workspace</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            Create Workspace
+          </DialogTitle>
+          <DialogDescription className="text-gray-400">
             Add a new workspace to organize your collections.
           </DialogDescription>
         </DialogHeader>
@@ -250,11 +248,17 @@ export function WorkspaceSwitcher() {
                 placeholder="Workspace name"
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
+                className="bg-zinc-800 border-zinc-700 text-white focus:ring-purple-500/30 focus:border-purple-500/50"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Create</Button>
+            <Button
+              type="submit"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-none shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              Create
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

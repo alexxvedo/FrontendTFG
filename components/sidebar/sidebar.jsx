@@ -74,22 +74,16 @@ export default function Sidebar() {
 
   const { isLoaded, isSignedIn, user } = useUser();
 
-  console.log("User", user);
-
   useEffect(() => {
     // Función para obtener los workspaces del usuario
     const fetchWorkspaces = async () => {
       if (!user) return;
 
-      console.log("UserID: ", user.id);
-
       try {
         const response = await fetch(
           `http://localhost:3001/users/${user.id}/workspaces`
         );
-        console.log("Fetching workspaces...");
         const data = await response.json();
-        console.log(data);
         setWorkspaces(data); // Guardar los workspaces en el estado
       } catch (error) {
         console.error("Error fetching workspaces:", error);
@@ -145,7 +139,6 @@ export default function Sidebar() {
         name: workspaceName.trim(),
         userId: user.id, // Asegúrate de pasar el ID del usuario
       };
-      console.log("user id:", user.id, "workspace name:", workspaceName);
 
       try {
         // Hacemos una solicitud POST a la API para crear el workspace
@@ -163,14 +156,12 @@ export default function Sidebar() {
 
         const createdWorkspace = await response.json();
 
-        console.log("Created workspace:", createdWorkspace);
-
         // Opcional: Notificación de éxito
         new Notification("New Workspace", {
           body: "Workspace creado exitosamente.",
           renotify: true,
           tag: "workspace-creation",
-        }).onclick = () => console.log("Notification Clicked");
+        }).onclick = () => {};
 
         // Limpia el campo de texto
         setWorkspaceName("");
@@ -202,7 +193,6 @@ export default function Sidebar() {
     collapsed: { width: 0 },
     open: { width: 256 },
   };
-  console.log(user.firstName);
   return (
     <>
       <AnimatePresence>
@@ -219,7 +209,9 @@ export default function Sidebar() {
               } bg-card text-card-foreground px-4 flex flex-col justify-between border-r-2 shadow-lg w-64 h-full top-0 left-0`}
             >
               <motion.div
-                initial={hasInteractedWithSidebar ? { opacity: 0 } : { opacity: 1 }}
+                initial={
+                  hasInteractedWithSidebar ? { opacity: 0 } : { opacity: 1 }
+                }
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.05 }}
@@ -262,7 +254,9 @@ export default function Sidebar() {
                             Dashboard
                           </Button>
                         </Link>
-                        <Link href={`/workspaces/${activeWorkspace.id}/collections`}>
+                        <Link
+                          href={`/workspaces/${activeWorkspace.id}/collections`}
+                        >
                           <Button
                             variant="ghost"
                             className="w-full justify-start"
@@ -289,7 +283,9 @@ export default function Sidebar() {
                             <span className="flex-1">Chat</span>
                             {activeWorkspace.unreadMessages > 0 && (
                               <span className="flex items-center justify-center min-w-[20px] h-5 text-xs bg-blue-500 text-white rounded-full px-1.5">
-                                {activeWorkspace.unreadMessages > 99 ? '99+' : activeWorkspace.unreadMessages}
+                                {activeWorkspace.unreadMessages > 99
+                                  ? "99+"
+                                  : activeWorkspace.unreadMessages}
                               </span>
                             )}
                           </Button>
@@ -391,7 +387,9 @@ export default function Sidebar() {
                                     </span>
                                     {workspace.unreadMessages > 0 && (
                                       <span className="relative z-10 flex items-center justify-center min-w-[20px] h-5 text-xs bg-blue-500 text-white rounded-full px-1.5">
-                                        {workspace.unreadMessages > 99 ? '99+' : workspace.unreadMessages}
+                                        {workspace.unreadMessages > 99
+                                          ? "99+"
+                                          : workspace.unreadMessages}
                                       </span>
                                     )}
                                   </Button>

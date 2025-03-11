@@ -45,17 +45,15 @@ export function AppSidebar({ ...props }) {
     if (user) {
       setUser(user);
       setIsLoading(false);
-    } else {
-      console.log("Usuario no autenticado o sesión no cargada");
     }
   }, [user, setUser]);
 
   useEffect(() => {
     const loadWorkspaces = async () => {
-      if (!user?.id) return;
+      if (!user?.email) return;
 
       try {
-        const response = await api.workspaces.listByUser(user.id);
+        const response = await api.workspaces.listByUser(user.email);
         setWorkspaces(response.data);
       } catch (error) {
         console.error("Error loading workspaces:", error);
@@ -102,7 +100,13 @@ export function AppSidebar({ ...props }) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none rounded-lg" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
+      </div>
+
+      <SidebarHeader className="relative">
         <motion.div
           initial={hasAnimated ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -117,7 +121,7 @@ export function AppSidebar({ ...props }) {
         </motion.div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="relative">
         <motion.div
           initial={hasAnimated ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -136,8 +140,8 @@ export function AppSidebar({ ...props }) {
         </motion.div>
       </SidebarContent>
 
-      <SidebarFooter>
-        <div className="mt-auto border-t border-[#1a1b23] pt-4">
+      <SidebarFooter className="relative">
+        <div className="mt-auto border-t border-gray-200/10 dark:border-gray-700/20 pt-4">
           {isLoading ? (
             <Skeleton className="w-full h-12 p-4 rounded-md" />
           ) : (

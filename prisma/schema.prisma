@@ -15,10 +15,11 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  notes         Note[]
+  collections   Collection[]
  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
 }
  
 model Account {
@@ -42,14 +43,6 @@ model Account {
   @@id([provider, providerAccountId])
 }
 
- 
-  /**
-   * The Session model represents a user's active session
-   * with the API. A session is a short-lived, secure
-   * token that can be used to authenticate a user.
-   *
-   * @see https://next-auth.js.org/docs/concepts/sessions
-   */
 model Session {
   sessionToken String   @unique
   userId       String
@@ -67,4 +60,28 @@ model VerificationToken {
  
   @@id([identifier, token])
 }
- 
+
+model Collection {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes       Note[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Note {
+  id           Int        @id @default(autoincrement())
+  noteName     String
+  content      String     @db.Text
+  userId       String
+  collectionId Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}

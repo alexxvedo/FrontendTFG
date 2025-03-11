@@ -18,6 +18,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
 import { useApi } from "@/lib/api";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import ActivityList from "@/components/dashboard/ActivityList";
+import Overview from "@/components/dashboard/Overview";
+import Members from "@/components/dashboard/Members";
 
 export default function Dashboard({ params }) {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -50,113 +53,96 @@ export default function Dashboard({ params }) {
   }, [socket, activeWorkspace]);
 
   return (
-    <motion.div
-      initial={{ width: "100%" }}
-      animate={{ width: isSidebarOpen ? "calc(100% - 256px)" : "100%" }}
-      transition={{ type: "tween", duration: 0.3 }}
-      className="flex-1 space-y-4 p-4 md:p-8 pt-6"
-    >
-      <div className="flex items-center justify-between space-y-2">
-        <div className="flex items-center space-x-2">
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <div className="flex items-center space-x-2 ml-4">
-            {connectedUsers &&
-              Array.from(connectedUsers.values()).map((userData) => (
-                <div key={userData.email} className="relative">
-                  <Avatar className="h-8 w-8 ring-2 ring-green-500 ring-offset-2">
-                    <AvatarImage 
-                      src={userData.image} 
-                      alt={userData.name || "Usuario"}
-                      referrerPolicy="no-referrer"
-                    />
-                    <AvatarFallback>
-                      {userData.name?.charAt(0)?.toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-zinc-900" />
-                </div>
-              ))}
-          </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button onClick={() => setIsInviteDialogOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Invitar Amigos
-          </Button>
-        </div>
+    <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5  pointer-events-none" />
+
+      {/* Floating orbs background effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Vista General</TabsTrigger>
-          <TabsTrigger value="members">Miembros</TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Usuarios Conectados
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{connectedUsers?.size}</div>
-                <div className="flex items-center mt-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2" />
-                  <p className="text-sm text-muted-foreground">
-                    de {allUsers.length} miembros
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Colecciones Activas
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">5</div>
-                <p className="text-xs text-muted-foreground">
-                  +1 desde la última semana
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Actividad Reciente
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">24</div>
-                <p className="text-xs text-muted-foreground">
-                  Acciones en las últimas 24h
-                </p>
-              </CardContent>
-            </Card>
+      <motion.div
+        initial={{ width: "100%" }}
+        animate={{ width: isSidebarOpen ? "calc(100% - 256px)" : "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}
+        className="relative flex-1 space-y-6 p-4 md:p-8 pt-6"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
+              Dashboard
+            </h2>
+            <div className="flex items-center space-x-2 ml-4">
+              {connectedUsers &&
+                Array.from(connectedUsers.values()).map((userData) => (
+                  <div key={userData.email} className="relative">
+                    <Avatar className="h-8 w-8 ring-2 ring-green-500/70 ring-offset-1 ring-offset-background dark:ring-offset-[#0A0A0F]">
+                      <AvatarImage
+                        src={userData.image}
+                        alt={userData.name || "Usuario"}
+                        referrerPolicy="no-referrer"
+                      />
+                      <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500">
+                        {userData.name?.charAt(0)?.toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background dark:border-[#0A0A0F]" />
+                  </div>
+                ))}
+            </div>
           </div>
-        </TabsContent>
-        <TabsContent value="members" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Usuarios del Workspace</CardTitle>
-              <CardDescription>
-                Gestiona los miembros y sus permisos en el workspace.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <WorkspaceUsersList workspaceId={activeWorkspace?.id} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => setIsInviteDialogOpen(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500 text-white hover:opacity-90 transition-all"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Invitar Amigos
+            </Button>
+          </div>
+        </div>
 
-      <InviteUserDialog
-        isOpen={isInviteDialogOpen}
-        onClose={() => setIsInviteDialogOpen(false)}
-        workspaceId={activeWorkspace?.id}
-      />
-    </motion.div>
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="bg-muted/50 dark:bg-gray-800/50 border border-border dark:border-gray-700/50">
+            <TabsTrigger
+              value="overview"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/10 data-[state=active]:to-pink-500/10 data-[state=active]:text-foreground dark:data-[state=active]:from-purple-500/20 dark:data-[state=active]:to-pink-500/20 dark:data-[state=active]:text-white text-muted-foreground dark:text-gray-400"
+            >
+              Vista General
+            </TabsTrigger>
+            <TabsTrigger
+              value="members"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/10 data-[state=active]:to-pink-500/10 data-[state=active]:text-foreground dark:data-[state=active]:from-purple-500/20 dark:data-[state=active]:to-pink-500/20 dark:data-[state=active]:text-white text-muted-foreground dark:text-gray-400"
+            >
+              Miembros
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview" className="space-y-6">
+            <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
+              <Overview connectedUsers={connectedUsers} allUsers={allUsers} />
+            </div>
+            <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
+              <ActivityList className="w-full flex-1" />
+            </div>
+          </TabsContent>
+          <TabsContent value="members" className="space-y-6">
+            <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
+              <Members activeWorkspace={activeWorkspace} />
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        <InviteUserDialog
+          isOpen={isInviteDialogOpen}
+          onClose={() => setIsInviteDialogOpen(false)}
+          workspaceId={activeWorkspace?.id}
+        />
+      </motion.div>
+    </div>
   );
 }

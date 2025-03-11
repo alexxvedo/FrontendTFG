@@ -1,11 +1,19 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { io } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
 const WorkspaceSocketContext = createContext({});
 
@@ -19,7 +27,6 @@ export function WorkspaceSocketProvider({ children }) {
 
   const cleanupSocket = useCallback(() => {
     if (socketRef.current) {
-      console.log("Cleaning up socket connection");
       socketRef.current.off("connect");
       socketRef.current.off("connect_error");
       socketRef.current.off("users_connected");
@@ -28,7 +35,7 @@ export function WorkspaceSocketProvider({ children }) {
       socketRef.current.off("collection_users_updated");
       socketRef.current.off("user_entered_collection");
       socketRef.current.off("user_left_collection");
-      
+
       if (workspace?.id) {
         socketRef.current.emit("leave_workspace", workspace.id);
       }
@@ -52,26 +59,23 @@ export function WorkspaceSocketProvider({ children }) {
       cleanupSocket();
     }
 
-    console.log("Connecting to socket server at:", SOCKET_URL);
     const newSocket = io(SOCKET_URL, {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 10,
-      transports: ['websocket', 'polling']
+      transports: ["websocket", "polling"],
     });
 
     socketRef.current = newSocket;
 
     const handleConnect = () => {
-      console.log("Connected to socket server, joining workspace:", workspace.id);
       newSocket.emit("join_workspace", workspace.id, {
         email: session.user.email,
         name: session.user.name,
         image: session.user.image,
       });
 
-      console.log("Requesting initial collections users state");
       newSocket.emit("get_collections_users", workspace.id);
     };
 
@@ -81,7 +85,6 @@ export function WorkspaceSocketProvider({ children }) {
       console.error("Socket connection error:", error);
       if (!reconnectTimeoutRef.current) {
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log("Attempting to reconnect socket...");
           cleanupSocket();
           reconnectTimeoutRef.current = null;
         }, 5000);
@@ -89,7 +92,6 @@ export function WorkspaceSocketProvider({ children }) {
     });
 
     newSocket.on("users_connected", (users) => {
-      console.log("Users connected to workspace:", users);
       const usersMap = new Map();
       users.forEach((user) => {
         usersMap.set(user.email, user);
@@ -98,7 +100,6 @@ export function WorkspaceSocketProvider({ children }) {
     });
 
     newSocket.on("user_joined", (userData) => {
-      console.log("User joined workspace:", userData);
       setConnectedUsers((prev) => {
         const newMap = new Map(prev);
         newMap.set(userData.email, userData);
@@ -107,7 +108,6 @@ export function WorkspaceSocketProvider({ children }) {
     });
 
     newSocket.on("user_disconnected", (email) => {
-      console.log("User disconnected from workspace:", email);
       setConnectedUsers((prev) => {
         const newMap = new Map(prev);
         newMap.delete(email);
@@ -116,43 +116,37 @@ export function WorkspaceSocketProvider({ children }) {
     });
 
     newSocket.on("collection_users_updated", ({ collectionId, users }) => {
-      console.log("Collection users updated:", { collectionId, users });
       setUsersInCollection((prev) => {
         const newState = {
           ...prev,
           [collectionId]: users,
         };
-        console.log("New users state:", newState);
         return newState;
       });
     });
 
     newSocket.on("user_entered_collection", ({ collectionId, user }) => {
-      console.log("User entered collection:", { collectionId, user });
       if (user) {
         setUsersInCollection((prev) => {
           const currentUsers = prev[collectionId] || [];
-          if (!currentUsers.some(u => u.email === user.email)) {
-            console.log("Adding new user to collection:", user);
+          if (!currentUsers.some((u) => u.email === user.email)) {
             return {
               ...prev,
               [collectionId]: [...currentUsers, user],
             };
           }
-          console.log("User already in collection, not adding:", user);
           return prev;
         });
       }
     });
 
     newSocket.on("user_left_collection", ({ collectionId, user }) => {
-      console.log("User left collection:", { collectionId, user });
       if (user) {
         setUsersInCollection((prev) => {
           const currentUsers = prev[collectionId] || [];
-          const updatedUsers = currentUsers.filter((u) => u.email !== user.email);
-          console.log("Removing user from collection:", user);
-          console.log("Updated users:", updatedUsers);
+          const updatedUsers = currentUsers.filter(
+            (u) => u.email !== user.email
+          );
           return {
             ...prev,
             [collectionId]: updatedUsers,
@@ -162,28 +156,31 @@ export function WorkspaceSocketProvider({ children }) {
     });
 
     return () => {
-      console.log("Cleaning up socket connection");
       cleanupSocket();
     };
   }, [session?.user, workspace?.id, cleanupSocket]);
 
-  const joinCollection = useCallback((collectionId) => {
-    if (socketRef.current && collectionId && workspace?.id && session?.user) {
-      console.log("Joining collection:", collectionId);
-      socketRef.current.emit("join_collection", workspace.id, collectionId, {
-        email: session.user.email,
-        name: session.user.name,
-        image: session.user.image,
-      });
-    }
-  }, [workspace?.id, session?.user]);
+  const joinCollection = useCallback(
+    (collectionId) => {
+      if (socketRef.current && collectionId && workspace?.id && session?.user) {
+        socketRef.current.emit("join_collection", workspace.id, collectionId, {
+          email: session.user.email,
+          name: session.user.name,
+          image: session.user.image,
+        });
+      }
+    },
+    [workspace?.id, session?.user]
+  );
 
-  const leaveCollection = useCallback((collectionId) => {
-    if (socketRef.current && collectionId && workspace?.id) {
-      console.log("Leaving collection:", collectionId);
-      socketRef.current.emit("leave_collection", workspace.id, collectionId);
-    }
-  }, [workspace?.id]);
+  const leaveCollection = useCallback(
+    (collectionId) => {
+      if (socketRef.current && collectionId && workspace?.id) {
+        socketRef.current.emit("leave_collection", workspace.id, collectionId);
+      }
+    },
+    [workspace?.id]
+  );
 
   const value = {
     socket: socketRef.current,
@@ -204,7 +201,9 @@ export function WorkspaceSocketProvider({ children }) {
 export function useWorkspaceSocket() {
   const context = useContext(WorkspaceSocketContext);
   if (!context) {
-    throw new Error("useWorkspaceSocket must be used within a WorkspaceSocketProvider");
+    throw new Error(
+      "useWorkspaceSocket must be used within a WorkspaceSocketProvider"
+    );
   }
   return context;
 }

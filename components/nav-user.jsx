@@ -53,8 +53,6 @@ export function NavUser({ user }) {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  console.log("User en nav-user:", user);
-
   return (
     <>
       <UserProfileDialog
@@ -69,62 +67,73 @@ export function NavUser({ user }) {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-gradient-to-r hover:from-blue-900/30 hover:to-purple-900/30 transition-all duration-200"
               >
-                <Avatar className="h-8 w-8 rounded-lg">
+                <Avatar className="h-8 w-8 rounded-lg border-2 border-zinc-200/50 dark:border-purple-500/30">
                   <AvatarImage
                     src={user.image}
                     alt={user.name}
                     referrerPolicy="no-referrer"
                   />
-                  <AvatarFallback className="rounded-lg">
+                  <AvatarFallback className="rounded-lg bg-zinc-200 dark:bg-gradient-to-r dark:from-blue-600/80 dark:to-purple-600/80 text-zinc-800 dark:text-white">
                     {user.name?.charAt(0)?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+                  <span className="truncate font-semibold text-zinc-900 dark:bg-gradient-to-r dark:from-blue-400 dark:via-purple-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
+                    {user.name}
+                  </span>
+                  <span className="truncate text-xs text-zinc-500 dark:text-gray-400">
+                    {user.email}
+                  </span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4" />
+                <ChevronsUpDown className="ml-auto size-4 text-gray-400" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+              className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg border border-zinc-200/50 dark:border-purple-500/20 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm shadow-lg dark:shadow-purple-500/10"
               side={isMobile ? "bottom" : "right"}
               align="end"
               sideOffset={4}
             >
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                  <Avatar className="h-8 w-8 rounded-lg">
+                  <Avatar className="h-8 w-8 rounded-lg border-2 border-zinc-200/50 dark:border-purple-500/30">
                     <AvatarImage
                       src={user.image}
                       alt={user.name}
                       referrerPolicy="no-referrer"
                     />
-                    <AvatarFallback className="rounded-lg">
+                    <AvatarFallback className="rounded-lg bg-zinc-200 dark:bg-gradient-to-r dark:from-blue-600/80 dark:to-purple-600/80 text-zinc-800 dark:text-white">
                       {user.name?.charAt(0)?.toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user.name}</span>
-                    <span className="truncate text-xs">{user.email}</span>
+                    <span className="truncate font-semibold text-zinc-900 dark:bg-gradient-to-r dark:from-blue-400 dark:via-purple-400 dark:to-pink-400 dark:bg-clip-text dark:text-transparent">
+                      {user.name}
+                    </span>
+                    <span className="truncate text-xs text-zinc-500 dark:text-gray-400">
+                      {user.email}
+                    </span>
                   </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="bg-zinc-200/50 dark:bg-purple-500/20" />
 
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => setIsProfileOpen(true)}>
-                  <UserCircle className="mr-2 h-4 w-4" />
+                <DropdownMenuItem
+                  onClick={() => setIsProfileOpen(true)}
+                  className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70"
+                >
+                  <UserCircle className="mr-2 h-4 w-4 text-blue-500 dark:text-blue-400" />
                   Account
                 </DropdownMenuItem>
 
-                <DropdownMenuItem className="flex items-center justify-between">
+                <DropdownMenuItem className="flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
                   {theme === "dark" ? (
-                    <Moon className="mr-2 h-4 w-4" />
+                    <Moon className="mr-2 h-4 w-4 text-purple-500 dark:text-purple-400" />
                   ) : (
-                    <Sun className="mr-2 h-4 w-4" />
+                    <Sun className="mr-2 h-4 w-4 text-amber-500 dark:text-yellow-400" />
                   )}
                   <Label htmlFor="dark-theme" className="flex-grow">
                     {theme === "dark" ? "Dark Theme" : "Light Theme"}
@@ -133,15 +142,16 @@ export function NavUser({ user }) {
                     id="dark-theme"
                     checked={theme === "dark"}
                     onCheckedChange={toggleTheme}
+                    className="data-[state=checked]:bg-purple-600"
                   />
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Bell className="mr-2 h-4 w-4" />
+                <DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
+                  <Bell className="mr-2 h-4 w-4 text-pink-500 dark:text-pink-400" />
                   Notifications
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <SignOutButton />
+              <DropdownMenuSeparator className="bg-zinc-200/50 dark:bg-purple-500/20" />
+              <SignOutButton className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70 w-full justify-start" />
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>

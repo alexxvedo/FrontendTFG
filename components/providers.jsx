@@ -1,5 +1,8 @@
+"use client";
+
 import { ThemeProvider } from "next-themes";
 import SessionProvider from "@/app/providers/SessionProvider";
+import { SocketProvider } from "@/context/socket";
 
 export function Providers({ children }) {
   return (
@@ -8,7 +11,9 @@ export function Providers({ children }) {
       defaultTheme="dark"
       disableTransitionOnChange
     >
-      <SessionProvider>{children}</SessionProvider>
+      <SessionProvider>
+        <SocketProvider>{children}</SocketProvider>
+      </SessionProvider>
     </ThemeProvider>
   );
 }

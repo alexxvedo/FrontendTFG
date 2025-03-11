@@ -36,15 +36,11 @@ export default function ChatPage() {
   useEffect(() => {
     if (!socket || !activeWorkspace?.id || !user) return;
 
-    console.log("Configurando eventos de chat para workspace:", activeWorkspace.id);
-
     const handleUsersConnected = (users) => {
-      console.log("Usuarios conectados:", users);
       setOnlineUsers(users);
     };
 
     const handleUserTyping = ({ email, name }) => {
-      console.log("Usuario escribiendo:", name);
       if (email !== user.email) {
         setTypingUsers((prev) => {
           const newSet = new Set(prev);
@@ -55,7 +51,6 @@ export default function ChatPage() {
     };
 
     const handleUserStopTyping = ({ email, name }) => {
-      console.log("Usuario dejó de escribir:", name);
       if (email !== user.email) {
         setTypingUsers((prev) => {
           const newSet = new Set(prev);
@@ -66,7 +61,6 @@ export default function ChatPage() {
     };
 
     const handleNewMessage = (message) => {
-      console.log("Nuevo mensaje recibido:", message);
       // Si el mensaje no es del usuario actual, incrementar contador de no leídos
       if (message.senderEmail !== user.email) {
         if (document.hidden) {
@@ -95,7 +89,6 @@ export default function ChatPage() {
 
     // Limpiar eventos al desmontar
     return () => {
-      console.log("Limpiando eventos de chat");
       socket.off("users_connected", handleUsersConnected);
       socket.off("user_typing", handleUserTyping);
       socket.off("user_stop_typing", handleUserStopTyping);
@@ -107,7 +100,6 @@ export default function ChatPage() {
   const handleTyping = useCallback(() => {
     if (!socket || !activeWorkspace?.id || !user) return;
 
-    console.log("Emitiendo evento de escritura");
     socket.emit("user_typing", {
       workspaceId: activeWorkspace.id,
       email: user.email,
@@ -121,7 +113,6 @@ export default function ChatPage() {
 
     // Establecer un nuevo timeout
     typingTimeoutRef.current = setTimeout(() => {
-      console.log("Emitiendo evento de dejar de escribir");
       socket.emit("user_stop_typing", {
         workspaceId: activeWorkspace.id,
         email: user.email,
@@ -151,7 +142,9 @@ export default function ChatPage() {
       setChatMessages(formattedMessages);
     } catch (error) {
       console.error("Error obteniendo mensajes del chat:", error);
-      setError("No se pudieron cargar los mensajes. Por favor, intenta de nuevo más tarde.");
+      setError(
+        "No se pudieron cargar los mensajes. Por favor, intenta de nuevo más tarde."
+      );
       toast.error("Error al cargar los mensajes del chat");
     } finally {
       setIsLoading(false);
@@ -178,8 +171,6 @@ export default function ChatPage() {
     setIsSending(true);
 
     try {
-      console.log("Enviando mensaje:", messageContent);
-      
       // Emitir el mensaje a través de WebSocket
       socket.emit("new_message", {
         workspaceId: activeWorkspace.id,
@@ -192,7 +183,11 @@ export default function ChatPage() {
       setNewMessage("");
 
       // Guardar en la base de datos
-      await api.chat.sendMessage(activeWorkspace.id, messageContent, user.email);
+      await api.chat.sendMessage(
+        activeWorkspace.id,
+        messageContent,
+        user.email
+      );
     } catch (error) {
       console.error("Error al enviar el mensaje:", error);
       toast.error("Error al enviar el mensaje");
@@ -206,26 +201,40 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="border-b p-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5" />
-            <h1 className="text-xl font-semibold">Chat</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            <span>{onlineUsers.length} online</span>
-          </div>
-        </div>
-        {typingUsers.size > 0 && (
-          <div className="text-sm text-muted-foreground mt-2">
-            {Array.from(typingUsers).join(", ")} {typingUsers.size === 1 ? "está" : "están"} escribiendo...
-          </div>
-        )}
+    <div className="flex flex-col h-screen dark:bg-[#0A0A0F] relative">
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+
+      {/* Floating orbs background effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="border-b border-zinc-200/20 dark:border-zinc-800/30 p-4 backdrop-blur-md bg-white/70 dark:bg-black/70 relative z-10">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 dark:from-indigo-400 dark:via-purple-400 dark:to-violet-400 bg-clip-text text-transparent">
+              Chat
+            </h1>
+          </div>
+          <div className="flex items-center gap-4">
+            {typingUsers.size > 0 && (
+              <div className="text-sm text-zinc-600 dark:text-zinc-400 mt-2 animate-typing-indicator">
+                {Array.from(typingUsers).join(", ")}{" "}
+                {typingUsers.size === 1 ? "está" : "están"} escribiendo...
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
+              <Users className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+              <span>{onlineUsers.length} online</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
         {chatMessages.map((message, index) => (
           <div
             key={message.id}
@@ -240,24 +249,36 @@ export default function ChatPage() {
               alt={message.sender}
               width={32}
               height={32}
-              className="rounded-full"
+              className="rounded-full border-2 border-white/20 shadow-md"
             />
             <div
               className={cn(
-                "max-w-[70%] rounded-lg p-3",
+                "max-w-[70%] rounded-lg p-3 shadow-sm",
                 message.isSelf
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted"
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                  : "bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-100"
               )}
             >
-              <div className="text-sm font-medium mb-1">{message.sender}</div>
+              <div
+                className={cn(
+                  "text-sm font-medium mb-1",
+                  message.isSelf
+                    ? "text-white/90"
+                    : "text-zinc-700 dark:text-zinc-300"
+                )}
+              >
+                {message.sender}
+              </div>
               <div className="text-sm">{message.message}</div>
             </div>
           </div>
         ))}
       </div>
 
-      <form onSubmit={handleSendMessage} className="border-t p-4">
+      <form
+        onSubmit={handleSendMessage}
+        className="border-t border-zinc-200/20 dark:border-zinc-800/30 p-4 backdrop-blur-md bg-white/50 dark:bg-black/50 relative z-10"
+      >
         <div className="flex gap-2">
           <input
             type="text"
@@ -267,10 +288,14 @@ export default function ChatPage() {
               handleTyping();
             }}
             placeholder="Escribe un mensaje..."
-            className="flex-1 rounded-lg border p-2"
+            className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-400/50 text-zinc-900 dark:text-zinc-100"
             disabled={isSending}
           />
-          <Button type="submit" disabled={isSending}>
+          <Button
+            type="submit"
+            disabled={isSending}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
+          >
             Enviar
           </Button>
         </div>
