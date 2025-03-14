@@ -70,7 +70,7 @@ export function AppSidebar({ ...props }) {
     () => [
       {
         title: "Dashboard",
-        url: `/workspaces/${activeWorkspace?.id}/dashboard`,
+        url: `/workspaces/${activeWorkspace?.id}`,
         icon: Home,
         isActive: true,
       },
@@ -100,11 +100,7 @@ export function AppSidebar({ ...props }) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none rounded-lg" />
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-40 w-80 h-80 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
-      </div>
+      <div className="absolute inset-0 bg-gradient-to-b from-purple-700/20 via-pink-900/20 to-blue-900/15 dark:from-purple-900/15 dark:via-pink-500/10 dark:to-blue-500/5 pointer-events-none rounded-lg" />
 
       <SidebarHeader className="relative">
         <motion.div

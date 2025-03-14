@@ -55,7 +55,16 @@ export function WorkspaceSocketProvider({ children }) {
       reconnectTimeoutRef.current = null;
     }
 
-    if (socketRef.current) {
+    // No desconectar el socket si ya está conectado al mismo workspace
+    if (socketRef.current && socketRef.current.connected) {
+      const currentWorkspace = socketRef.current._workspaceId;
+      if (currentWorkspace === workspace.id) {
+        console.log("Socket ya conectado al workspace:", workspace.id);
+        // Solicitar la lista actualizada de usuarios
+        socketRef.current.emit("get_workspace_users", workspace.id);
+        return;
+      }
+      // Si está conectado a otro workspace, limpiarlo
       cleanupSocket();
     }
 
@@ -65,11 +74,20 @@ export function WorkspaceSocketProvider({ children }) {
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 10,
       transports: ["websocket", "polling"],
+      query: {
+        workspaceId: workspace.id,
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image,
+      },
     });
 
+    // Guardar el ID del workspace en el socket para referencia futura
+    newSocket._workspaceId = workspace.id;
     socketRef.current = newSocket;
 
     const handleConnect = () => {
+      console.log("Socket conectado al servidor");
       newSocket.emit("join_workspace", workspace.id, {
         email: session.user.email,
         name: session.user.name,
@@ -80,6 +98,17 @@ export function WorkspaceSocketProvider({ children }) {
     };
 
     newSocket.on("connect", handleConnect);
+
+    // Si el socket se reconecta, volver a unirse al workspace
+    newSocket.on("reconnect", () => {
+      console.log("Socket reconectado, volviendo a unirse al workspace:", workspace.id);
+      newSocket.emit("join_workspace", workspace.id, {
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image,
+      });
+      newSocket.emit("get_collections_users", workspace.id);
+    });
 
     newSocket.on("connect_error", (error) => {
       console.error("Socket connection error:", error);
@@ -92,6 +121,7 @@ export function WorkspaceSocketProvider({ children }) {
     });
 
     newSocket.on("users_connected", (users) => {
+      console.log("Usuarios conectados recibidos:", users.length);
       const usersMap = new Map();
       users.forEach((user) => {
         usersMap.set(user.email, user);
@@ -182,13 +212,30 @@ export function WorkspaceSocketProvider({ children }) {
     [workspace?.id]
   );
 
+  // Función para solicitar usuarios conectados
+  const requestConnectedUsers = useCallback(() => {
+    if (socketRef.current && socketRef.current.connected && workspace?.id) {
+      console.log("Solicitando usuarios conectados para workspace:", workspace.id);
+      socketRef.current.emit("get_workspace_users", workspace.id);
+    }
+  }, [workspace?.id]);
+
+  // Exponer la función para que los componentes puedan solicitar actualizaciones
+  useEffect(() => {
+    // Solicitar usuarios conectados cuando cambie el workspace activo
+    if (socketRef.current && socketRef.current.connected && workspace?.id) {
+      requestConnectedUsers();
+    }
+  }, [workspace?.id, requestConnectedUsers]);
+
   const value = {
     socket: socketRef.current,
     user: session?.user,
+    connectedUsers: Array.from(connectedUsers.values()),
     usersInCollection,
-    connectedUsers,
     joinCollection,
     leaveCollection,
+    requestConnectedUsers,
   };
 
   return (

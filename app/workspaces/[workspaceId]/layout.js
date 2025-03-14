@@ -9,7 +9,9 @@ export default function WorkspaceLayout({ children }) {
       <SidebarProvider>
         <div className="flex w-full h-full">
           <AppSidebar />
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main className="flex-1 overflow-auto bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
+            {children}
+          </main>
         </div>
       </SidebarProvider>
     </WorkspaceSocketProvider>

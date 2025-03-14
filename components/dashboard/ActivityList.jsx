@@ -48,26 +48,36 @@ export default function ActivityList() {
 
   return (
     <div className="w-full p-4">
-      <h2 className="text-lg font-bold mb-4 bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">Actividad Reciente</h2>
+      <h2 className="text-lg font-bold mb-4 bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
+        Actividad Reciente
+      </h2>
       <div className="border border-gray-200/10 dark:border-gray-700/20 rounded-lg overflow-hidden bg-background/50 dark:bg-gray-800/20 backdrop-blur-sm">
         <Table>
           <TableHeader>
-            <TableRow className="bg-purple-500/3 dark:bg-purple-500/5 border-b border-gray-200/10 dark:border-gray-700/20">
-              <TableHead className="w-[100px] font-semibold text-foreground dark:text-white">Usuario</TableHead>
-              <TableHead className="w-[500px] font-semibold text-foreground dark:text-white">Actividad</TableHead>
-              <TableHead className="text-right font-semibold text-foreground dark:text-white">Fecha</TableHead>
+            <TableRow className="">
+              <TableHead className="w-[100px] font-semibold text-foreground dark:text-white">
+                Usuario
+              </TableHead>
+              <TableHead className="w-[500px] font-semibold text-foreground dark:text-white">
+                Actividad
+              </TableHead>
+              <TableHead className="text-right font-semibold text-foreground dark:text-white">
+                Fecha
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {actividad.map((activity) => (
-              <TableRow 
+              <TableRow
                 key={activity.id}
                 className="hover:bg-purple-500/3 dark:hover:bg-purple-500/5 transition-colors border-b border-gray-200/10 dark:border-gray-700/20 last:border-0"
               >
                 <TableCell className="font-medium text-foreground dark:text-white">
                   Usuario {activity.userId}
                 </TableCell>
-                <TableCell className="text-muted-foreground dark:text-gray-300">{activity.activity}</TableCell>
+                <TableCell className="text-muted-foreground dark:text-gray-300">
+                  {activity.activity}
+                </TableCell>
                 <TableCell className="text-right text-muted-foreground dark:text-gray-400">
                   {formatDate(activity.timestamp)}
                 </TableCell>

@@ -8,6 +8,8 @@ import CreateCollectionDialog from "@/components/collections/CreateCollectionDia
 import EditCollectionDialog from "@/components/collections/EditCollectionDialog";
 import DeleteCollectionDialog from "@/components/collections/DeleteCollectionDialog";
 
+import { Separator } from "@/components/ui/separator";
+
 export function CollectionsList({
   collections,
   onCollectionCreate,
@@ -25,7 +27,7 @@ export function CollectionsList({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
+        <h2 className="text-3xl font-bold  bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
           Colecciones
         </h2>
         <Button
@@ -36,6 +38,7 @@ export function CollectionsList({
           Nueva Colección
         </Button>
       </div>
+      <Separator />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {collections.map((collection) => {
@@ -78,7 +81,7 @@ export function CollectionsList({
 
                     {activeUsers && activeUsers[collection.id] ? (
                       activeUsers[collection.id].map((user) => (
-                        <AvatarGroup>
+                        <AvatarGroup key={user.email}>
                           <Avatar
                             key={user.email}
                             className="border-2 border-background dark:border-gray-800 w-8 h-8 ring-1 ring-purple-500/20 dark:ring-pink-500/20"

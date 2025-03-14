@@ -7,7 +7,10 @@ export async function POST(req) {
     const { workspaceId, permissionType } = body;
 
     if (!workspaceId || !permissionType) {
-      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     const token = jwt.sign(
@@ -19,7 +22,10 @@ export async function POST(req) {
     );
 
     return NextResponse.json({ token });
-  } catch (err) {
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

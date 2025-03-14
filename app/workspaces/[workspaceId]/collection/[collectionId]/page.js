@@ -34,12 +34,19 @@ import Agent from "@/components/agent/Agent";
 
 import CollectionTabs from "@/components/collection/CollectionTabs";
 import StudyDialog from "@/components/collection/StudyDialog";
+import Background from "@/components/background/background";
+
+import { Separator } from "@/components/ui/separator";
+
+import PetAgent from "@/components/agent/PetAgent";
 
 export default function CollectionPage() {
   const { workspaceId, collectionId } = useParams();
   const router = useRouter();
   const { activeWorkspace, updateActiveWorkspace, workspaces } =
     useSidebarStore();
+
+  const { setActiveCollection } = useCollectionStore();
 
   const api = useApi();
 
@@ -76,6 +83,7 @@ export default function CollectionPage() {
           parseInt(collectionId)
         );
         setCollection(response.data);
+        setActiveCollection(response.data);
 
         // También cargar el workspace
         const workspaceResponse = await api.workspaces.get(
@@ -87,11 +95,21 @@ export default function CollectionPage() {
         const flashcardsResponse = await api.flashcards.listByCollection(
           parseInt(collectionId)
         );
+
+        // Cargar los documentos (recursos)
+        const resourcesResponse = await api.resources.list(
+          parseInt(collectionId)
+        );
+
         setCollection((prev) => ({
           ...prev,
           ...response.data,
           flashcards: flashcardsResponse.data,
+          resources: resourcesResponse.data || [],
         }));
+
+        console.log("Colección cargada:", response.data);
+        console.log("Recursos cargados:", resourcesResponse.data);
 
         setIsLoading(false);
       } catch (error) {
@@ -234,6 +252,24 @@ export default function CollectionPage() {
     [collectionId]
   );
 
+  const handleNoteSaved = useCallback(
+    async (noteData) => {
+      try {
+        // Actualizar la colección con la nueva nota
+        const notesResponse = await api.notes.getNotes(parseInt(collectionId));
+        setCollection((prev) => ({
+          ...prev,
+          notes: notesResponse,
+        }));
+        toast.success("Nota guardada correctamente");
+      } catch (error) {
+        console.error("Error updating collection after adding note:", error);
+        toast.error("Error al actualizar la colección");
+      }
+    },
+    [collectionId]
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -261,16 +297,9 @@ export default function CollectionPage() {
 
   return (
     <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+      <Background />
 
-      {/* Floating orbs background effect */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
-      </div>
-
-      <div className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-black/70 border-b border-zinc-200/20 dark:border-zinc-800/30">
+      <div className="sticky top-0 z-50 backdrop-blur-xl">
         <div className="container min-w-full mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-4">
@@ -281,9 +310,9 @@ export default function CollectionPage() {
                 <ArrowLeft className="h-5 w-5" />
                 <span className="font-medium">Volver</span>
               </Link>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 dark:from-indigo-400 dark:via-purple-400 dark:to-violet-400 bg-clip-text text-transparent">
+              <h2 className="text-3xl font-bold  bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
                 {collection.name}
-              </h1>
+              </h2>
             </div>
 
             <div className="flex items-center justify-between gap-4">
@@ -362,6 +391,8 @@ export default function CollectionPage() {
         </div>
       </div>
 
+      <Separator />
+
       <div className="container relative min-w-full mx-auto px-6 pt-4">
         <div className="flex justify-center">
           <CollectionTabs collection={collection} isLoading={isLoading} />
@@ -408,6 +439,13 @@ export default function CollectionPage() {
         studyMode={studyMode}
         setStudyMode={setStudyMode}
         collection={collection}
+      />
+
+      <PetAgent
+        resources={collection.resources || []}
+        collectionId={collection.id}
+        onFlashcardCreated={handleFlashcardAdded}
+        onNoteSaved={handleNoteSaved}
       />
 
       {/*

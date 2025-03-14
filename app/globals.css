@@ -15,6 +15,23 @@ body {
   }
 }
 
+/* Animaciones personalizadas */
+@keyframes float {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-10px) translateX(5px);
+  }
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -48,6 +65,14 @@ body {
     --chart-3: 330 100% 70%;
     --chart-4: 150 100% 70%;
     --chart-5: 50 100% 70%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 271 84% 93%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 222.2 84% 4.9%;
   }
 
   .dark {
@@ -63,7 +88,7 @@ body {
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 292 28% 22%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
@@ -79,7 +104,7 @@ body {
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent: 292 28% 22%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
@@ -158,7 +183,8 @@ body {
 }
 
 .editor-inner {
-  background: #fff;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   position: relative;
 }
 
@@ -166,12 +192,11 @@ body {
   min-height: 150px;
   resize: none;
   font-size: 15px;
-  caret-color: rgb(5, 5, 5);
+  caret-color: hsl(var(--foreground));
   position: relative;
   tab-size: 1;
   outline: 0;
   padding: 15px 10px;
-  caret-color: #444;
 }
 
 .editor-placeholder {
@@ -380,7 +405,8 @@ pre::-webkit-scrollbar-thumb {
 .toolbar {
   display: flex;
   margin-bottom: 1px;
-  background: #fff;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
   padding: 4px;
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
@@ -428,12 +454,13 @@ pre::-webkit-scrollbar-thumb {
   opacity: 1;
 }
 
-.toolbar .toolbar-item:hover:not([disabled]) {
+.toolbar button.toolbar-item:hover:not([disabled]) {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
   -webkit-appearance: none;
   -moz-appearance: none;
   width: 70px;
   font-size: 14px;
-  color: #777;
   text-overflow: ellipsis;
 }
 
@@ -494,7 +521,8 @@ i.chevron-down {
 }
 
 #block-controls button:hover {
-  background-color: #efefef;
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
 }
 
 #block-controls button:focus-visible {
@@ -546,13 +574,14 @@ i.chevron-down {
   border-radius: 8px;
   min-width: 100px;
   min-height: 40px;
-  background-color: #fff;
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
 }
 
 .dropdown .item {
   margin: 0 8px 0 8px;
   padding: 8px;
-  color: #050505;
+  color: hsl(var(--popover-foreground));
   cursor: pointer;
   line-height: 16px;
   font-size: 15px;
@@ -561,7 +590,7 @@ i.chevron-down {
   flex-direction: row;
   flex-shrink: 0;
   justify-content: space-between;
-  background-color: #fff;
+  background-color: hsl(var(--popover));
   border-radius: 8px;
   border: 0;
   min-width: 268px;
@@ -583,24 +612,8 @@ i.chevron-down {
 }
 
 .dropdown .item:hover {
-  background-color: #eee;
-}
-
-.dropdown .item .text {
-  display: flex;
-  line-height: 20px;
-  flex-grow: 1;
-  width: 200px;
-}
-
-.dropdown .item .icon {
-  display: flex;
-  width: 20px;
-  height: 20px;
-  user-select: none;
-  margin-right: 12px;
-  line-height: 16px;
-  background-size: contain;
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
 }
 
 .link-editor {
@@ -612,7 +625,8 @@ i.chevron-down {
   max-width: 300px;
   width: 100%;
   opacity: 0;
-  background-color: #fff;
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
   box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.3);
   border-radius: 8px;
   transition: opacity 0.5s;
@@ -625,9 +639,9 @@ i.chevron-down {
   margin: 8px 12px;
   padding: 8px 12px;
   border-radius: 15px;
-  background-color: #eee;
+  background-color: hsl(var(--input));
   font-size: 15px;
-  color: rgb(5, 5, 5);
+  color: hsl(var(--foreground));
   border: 0;
   outline: 0;
   position: relative;
@@ -676,7 +690,8 @@ i.chevron-down {
   width: 20px;
   height: 20px;
   display: inline-block;
-  background-color: #eee;
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
 }
 
 .link-editor .button i,
@@ -820,4 +835,92 @@ i.justify-align {
   100% {
     background-position: 0% 50%;
   }
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1rem;
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+}
+
+th,
+td {
+  padding: 0.75rem;
+  vertical-align: top;
+  border-top: 1px solid hsl(var(--border));
+}
+
+thead th {
+  vertical-align: bottom;
+  border-bottom: 2px solid hsl(var(--border));
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+tbody tr:hover {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  color: hsl(var(--foreground));
+}
+
+.menu-item:hover {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.menu-item.active {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Sidebar menu hover styles for both light and dark themes */
+[data-sidebar="menu-button"] {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+[data-sidebar="menu-button"]:hover {
+  background-color: hsl(var(--sidebar-accent));
+  color: hsl(var(--sidebar-accent-foreground));
+}
+
+[data-sidebar="menu-button"][data-active="true"] {
+  background-color: hsl(var(--sidebar-accent));
+  color: hsl(var(--sidebar-accent-foreground));
+  font-weight: 500;
+}
+
+[data-sidebar="menu-action"]:hover {
+  background-color: hsl(var(--sidebar-accent));
+  color: hsl(var(--sidebar-accent-foreground));
+}
+
+/* Sidebar menu badge styles */
+[data-sidebar="menu-badge"] {
+  color: hsl(var(--sidebar-foreground));
+}
+
+[data-sidebar="menu-badge"]:has(+ [data-sidebar="menu-button"]:hover),
+[data-sidebar="menu-button"][data-active="true"] + [data-sidebar="menu-badge"] {
+  color: hsl(var(--sidebar-accent-foreground));
+}
+
+/* Sidebar menu sub styles */
+[data-sidebar="menu-sub"] {
+  border-color: hsl(var(--sidebar-border));
+}
+
+/* Sidebar menu sub button hover styles */
+.SidebarMenuSubButton:hover {
+  background-color: hsl(var(--sidebar-accent));
+  color: hsl(var(--sidebar-accent-foreground));
 }

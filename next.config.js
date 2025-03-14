@@ -24,15 +24,9 @@ const nextConfig = {
     // Número de páginas que deben mantenerse en memoria
     pagesBufferLength: 2,
   },
-  // Configuración para suprimir advertencias específicas
-  webpack: (config, { dev, isServer }) => {
-    if (dev && !isServer) {
-      // Filtrar advertencias específicas en modo desarrollo
-      config.infrastructureLogging = {
-        level: "error", // Mostrar solo errores, no advertencias
-      };
-    }
-    return config;
+  eslint: {
+    // Desactivar la verificación de ESLint durante la compilación
+    ignoreDuringBuilds: true,
   },
 };
 

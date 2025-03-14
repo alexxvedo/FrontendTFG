@@ -49,7 +49,7 @@ export default function WorkspacesPage() {
 
           const firstWorkspace = workspaces[0];
           updateActiveWorkspace(firstWorkspace);
-          router.replace(`/workspaces/${firstWorkspace.id}/dashboard`);
+          router.replace(`/workspaces/${firstWorkspace.id}/`);
         } catch (workspaceError) {
           console.error(
             "Error al obtener espacios de trabajo:",

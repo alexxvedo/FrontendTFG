@@ -15,6 +15,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useApi } from "@/lib/api";
+import { Separator } from "@/components/ui/separator";
 
 export function NavMain({ items, isCollapsed }) {
   const { activeWorkspace } = useSidebarStore();
@@ -59,12 +60,16 @@ export function NavMain({ items, isCollapsed }) {
 
   // Función para determinar si un ítem de navegación está activo
   const isNavItemActive = (url) => {
-    return pathname === url || pathname.startsWith(url);
+    console.log(pathname, url);
+    return pathname === url;
   };
 
   return (
     <SidebarGroup>
+      <Separator className="mb-2 dark:bg-white/10 bg-zinc-200" />
+
       <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.title}>
@@ -75,7 +80,7 @@ export function NavMain({ items, isCollapsed }) {
                   "bg-sidebar-accent text-sidebar-accent-foreground"
               )}
             >
-              <Link href={item.url}>
+              <Link href={item.url} className="flex items-center w-full ">
                 {item.icon && <item.icon className="h-4 w-4" />}
                 {!isCollapsed && <span className="ml-2">{item.title}</span>}
               </Link>
@@ -83,6 +88,8 @@ export function NavMain({ items, isCollapsed }) {
           </SidebarMenuItem>
         ))}
       </SidebarMenu>
+
+      <Separator className="my-2 dark:bg-white/10 bg-zinc-800" />
 
       <SidebarGroupLabel>Collections</SidebarGroupLabel>
       <SidebarMenu>

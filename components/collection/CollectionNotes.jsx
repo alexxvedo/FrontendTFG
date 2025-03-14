@@ -4,6 +4,8 @@ import { useSession } from "next-auth/react";
 import { useCollectionStore } from "@/store/collections-store/collection-store";
 import { useApi } from "@/lib/api";
 
+import { Button } from "@/components/ui/button";
+
 import NotesList from "@/components/notes/NotesList";
 import CreateNoteDialog from "@/components/collection/CreateNoteDialog";
 
@@ -12,6 +14,8 @@ export default function CollectionNotes() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { activeCollection } = useCollectionStore();
   const api = useApi();
+
+  console.log(activeCollection);
 
   const { data: session } = useSession();
   const user = session?.user;
@@ -65,6 +69,9 @@ export default function CollectionNotes() {
             Notas de Estudio
           </h2>
         </div>
+        <Button onClick={() => setIsCreateDialogOpen(!isCreateDialogOpen)}>
+          Crear nota
+        </Button>
         <CreateNoteDialog
           isOpen={isCreateDialogOpen}
           onClose={() => setIsCreateDialogOpen(false)}

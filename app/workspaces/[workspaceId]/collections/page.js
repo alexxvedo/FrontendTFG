@@ -10,6 +10,8 @@ import { useCollectionStore } from "@/store/collections-store/collection-store";
 import { toast } from "sonner";
 import { CollectionsList } from "@/components/collections/collections-list";
 import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
+import Background from "@/components/background/background";
+import { Separator } from "@/components/ui/separator";
 
 // Componente envoltorio que tiene acceso al contexto del socket
 function CollectionsListWithSocket({
@@ -22,16 +24,8 @@ function CollectionsListWithSocket({
   const { usersInCollection } = useWorkspaceSocket();
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
-
-      {/* Floating orbs background effect */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
-      </div>
-
+    <div className="relative min-h-screen">
+      <Background />
       <div className="relative flex-1 space-y-4 p-4 md:p-8 pt-6">
         <CollectionsList
           collections={collections}

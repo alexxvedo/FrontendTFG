@@ -139,7 +139,7 @@ export default function PomodoroTimer() {
                   <SelectValue placeholder="Selecciona tiempo" />
                 </SelectTrigger>
                 <SelectContent>
-                  {[15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((time) => (
+                  {[1, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((time) => (
                     <SelectItem key={time} value={time.toString()}>
                       {time} min
                     </SelectItem>

@@ -62,6 +62,7 @@ import {
   PlusIcon,
   AlertCircle,
 } from "lucide-react";
+import Background from "@/components/background/background";
 
 function DroppableColumn({ columnId, children }) {
   const { setNodeRef } = useDroppable({ id: columnId });
@@ -444,7 +445,8 @@ export default function DraggableBoard() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="p-6 min-h-screen bg-background">
+      <Background />
+      <div className="p-6 min-h-screen">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {Object.keys(columns).map((columnId) => (
             <DroppableColumn key={columnId} columnId={columnId}>

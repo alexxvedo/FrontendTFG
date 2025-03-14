@@ -110,7 +110,7 @@ export function WorkspaceSwitcher() {
         updateActiveWorkspace(workspace);
 
         // Usamos push en lugar de replace para forzar una nueva entrada en el historial
-        await router.push(`/workspaces/${workspace.id}/dashboard`);
+        await router.push(`/workspaces/${workspace.id}/`);
       } catch (error) {
         console.error("Error changing workspace:", error);
         toast.error("Error changing workspace");

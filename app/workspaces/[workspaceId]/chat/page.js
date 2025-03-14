@@ -12,6 +12,9 @@ import Image from "next/image";
 import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
 import { toast } from "sonner";
 
+import Background from "@/components/background/background";
+import { Separator } from "@/components/ui/separator";
+
 export default function ChatPage() {
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
   const incrementUnreadMessages = useSidebarStore(
@@ -25,12 +28,19 @@ export default function ChatPage() {
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [isSending, setIsSending] = useState(false);
   const typingTimeoutRef = useRef(null);
-  const { socket, user: socketUser } = useWorkspaceSocket();
+  const { socket, user: socketUser, requestConnectedUsers } = useWorkspaceSocket();
 
   const lastMessageRef = useRef(null);
   const api = useApi();
   const { data: session } = useSession();
   const user = session?.user;
+
+  // Solicitar usuarios conectados cuando se monte el componente
+  useEffect(() => {
+    if (socket && activeWorkspace?.id && requestConnectedUsers) {
+      requestConnectedUsers();
+    }
+  }, [socket, activeWorkspace?.id, requestConnectedUsers]);
 
   // Manejar eventos de socket
   useEffect(() => {
@@ -202,16 +212,9 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen dark:bg-[#0A0A0F] relative">
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+      <Background />
 
-      {/* Floating orbs background effect */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
-      </div>
-
-      <div className="border-b border-zinc-200/20 dark:border-zinc-800/30 p-4 backdrop-blur-md bg-white/70 dark:bg-black/70 relative z-10">
+      <div className="border-b border-zinc-200/20 dark:border-zinc-800/30 p-4 backdrop-blur-xl relative z-10">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <MessageCircle className="w-5 h-5 text-purple-500 dark:text-purple-400" />
@@ -234,6 +237,8 @@ export default function ChatPage() {
         </div>
       </div>
 
+      <Separator />
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
         {chatMessages.map((message, index) => (
           <div
@@ -255,7 +260,7 @@ export default function ChatPage() {
               className={cn(
                 "max-w-[70%] rounded-lg p-3 shadow-sm",
                 message.isSelf
-                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                  ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white"
                   : "bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-700/50 text-zinc-900 dark:text-zinc-100"
               )}
             >
@@ -277,9 +282,9 @@ export default function ChatPage() {
 
       <form
         onSubmit={handleSendMessage}
-        className="border-t border-zinc-200/20 dark:border-zinc-800/30 p-4 backdrop-blur-md bg-white/50 dark:bg-black/50 relative z-10"
+        className="border-t border-zinc-200/20 dark:border-zinc-800/30 p-4 backdrop-blur-lg  relative z-10"
       >
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <input
             type="text"
             value={newMessage}
@@ -288,13 +293,13 @@ export default function ChatPage() {
               handleTyping();
             }}
             placeholder="Escribe un mensaje..."
-            className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-400/50 text-zinc-900 dark:text-zinc-100"
+            className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-700  backdrop-blur-sm p-2 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-400/50 text-zinc-900 dark:text-zinc-100"
             disabled={isSending}
           />
           <Button
             type="submit"
             disabled={isSending}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white"
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white h-10"
           >
             Enviar
           </Button>
