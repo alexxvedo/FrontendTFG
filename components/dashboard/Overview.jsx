@@ -1,6 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function Overview({ connectedUsers, allUsers }) {
+export default function Overview({ connectedUsers, allUsers, activities }) {
+  console.log(
+    "Connected users en Overview: ",
+    connectedUsers,
+    " Size ",
+    connectedUsers?.length
+  );
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <Card className="relative overflow-hidden border-gray-200/10 dark:border-gray-700/20 bg-background/50 dark:bg-gray-800/20 backdrop-blur-sm">
@@ -11,7 +17,9 @@ export default function Overview({ connectedUsers, allUsers }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="relative">
-          <div className="text-2xl font-bold">{connectedUsers?.size}</div>
+          <div className="text-2xl font-bold">
+            {connectedUsers?.length || 0}
+          </div>
           <div className="flex items-center mt-2">
             <div className="w-3 h-3 bg-green-500 rounded-full mr-2" />
             <p className="text-sm text-muted-foreground">
@@ -42,7 +50,7 @@ export default function Overview({ connectedUsers, allUsers }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="relative">
-          <div className="text-2xl font-bold">24</div>
+          <div className="text-2xl font-bold">{activities}</div>
           <p className="text-xs text-muted-foreground">
             Acciones en las últimas 24h
           </p>

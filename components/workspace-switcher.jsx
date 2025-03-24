@@ -127,6 +127,7 @@ export function WorkspaceSwitcher() {
       try {
         const newWorkspace = await api.workspaces.create(user.email, {
           name: workspaceName,
+          user: user.email,
         });
 
         // Asegurarnos de que workspaces es un array antes de actualizarlo
@@ -139,7 +140,7 @@ export function WorkspaceSwitcher() {
         setIsDialogOpen(false);
 
         // Redirigir a la página de colecciones del nuevo workspace
-        router.push(`/workspaces/${newWorkspace.data.id}/dashboard`);
+        router.push(`/workspaces/${newWorkspace.data.id}/`);
         toast.success("Workspace created successfully");
       } catch (error) {
         console.error("Error creating workspace:", error);

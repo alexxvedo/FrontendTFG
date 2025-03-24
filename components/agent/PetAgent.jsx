@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
@@ -56,12 +56,14 @@ const PetAgent = ({
       id: "welcome",
       role: "assistant",
       content:
-        "¡Hola! Soy tu asistente de estudio. ¿En qué puedo ayudarte hoy?",
+        "¡Hola! Soy tu asistente de estudio inteligente. Puedo responder preguntas sobre tus documentos, generar resúmenes y crear flashcards para ayudarte a estudiar de manera más efectiva. ¿En qué puedo ayudarte hoy?",
     },
     {
       id: "options",
       role: "assistant",
-      isOptions: true, // Marcamos este mensaje como especial para las opciones
+      isOptions: true,
+      content:
+        "Selecciona una de las siguientes opciones o hazme una pregunta directamente:",
     },
   ]);
 
@@ -103,7 +105,14 @@ const PetAgent = ({
 
   // Scroll al final de los mensajes cuando se añade uno nuevo
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const scrollToBottom = () => {
+      if (messagesEndRef.current) {
+        window.requestAnimationFrame(() => {
+          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        });
+      }
+    };
+    scrollToBottom();
   }, [messages]);
 
   // Enfoque en el input cuando se abre el chat
@@ -115,7 +124,7 @@ const PetAgent = ({
     }
   }, [isOpen]);
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!input.trim()) return;
 
     // Añadir mensaje del usuario
@@ -126,44 +135,74 @@ const PetAgent = ({
     setIsTyping(true);
 
     try {
-      // Aquí iría la llamada a tu API para obtener respuesta del agente
-      // Por ahora simulamos una respuesta después de un tiempo
+      // Llamada a la API para obtener respuesta del agente
+      const response = await api.agent.askQuestion(collectionId, input);
+
+      // Crear el mensaje de respuesta del asistente
+      const botResponse = {
+        role: "assistant",
+        content: response.data.answer || "No pude generar una respuesta.",
+        sources: response.data.sources || [],
+        is_general_answer: response.data.is_general_answer || false,
+      };
+
+      // Añadir mensaje de respuesta del asistente
+      setMessages((prev) => [...prev, botResponse]);
+
+      // Añadir mensaje de opciones después de la respuesta
+      const optionsMessage = {
+        role: "assistant",
+        isOptions: true,
+        content: "¿Qué más te gustaría hacer?",
+      };
+
+      // Pequeño retraso para que el usuario pueda leer la respuesta antes de mostrar las opciones
       setTimeout(() => {
-        const botResponse = {
-          role: "assistant",
-          content: `He recibido tu mensaje: "${input}". Estoy trabajando en implementar una respuesta real desde la API.`,
-        };
-        setMessages((prev) => [...prev, botResponse]);
+        setMessages((prev) => [...prev, optionsMessage]);
         setIsTyping(false);
         setShowOptions(true);
-      }, 1500);
-
-      // Implementación real (descomenta cuando tengas la API lista)
-      /*
-      const response = await api.agent.chat(collectionId, input);
-      setMessages(prev => [...prev, { 
-        role: "assistant", 
-        content: response.message 
-      }]);
-      setIsTyping(false);
-      setShowOptions(true);
-      */
+      }, 1000);
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
-      toast.error("No se pudo enviar el mensaje");
+      toast.error(
+        "No se pudo enviar el mensaje: " +
+          (error.message || "Error desconocido")
+      );
       setIsTyping(false);
       setShowOptions(true);
-    }
-  };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+      // Añadir mensaje de error como respuesta del asistente
+      const errorMessage = {
+        role: "assistant",
+        content:
+          "Lo siento, ha ocurrido un error al procesar tu mensaje. Por favor, inténtalo de nuevo más tarde.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
 
-  const handleGenerateFlashcards = async () => {
+      // Añadir mensaje de opciones incluso después de un error
+      const optionsMessage = {
+        role: "assistant",
+        isOptions: true,
+        content: "¿Qué te gustaría hacer ahora?",
+      };
+
+      setTimeout(() => {
+        setMessages((prev) => [...prev, optionsMessage]);
+      }, 1000);
+    }
+  }, [input, collectionId, api.agent]);
+
+  const handleKeyPress = useCallback(
+    (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    },
+    [handleSendMessage]
+  );
+
+  const handleGenerateFlashcards = useCallback(async () => {
     if (!selectedDocument) {
       toast.error("Por favor, selecciona un documento");
       return;
@@ -219,98 +258,104 @@ const PetAgent = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedDocument, numFlashcards, collectionId, api.agent]);
 
-  const handleGenerateSummary = async (isDetailed = false) => {
-    if (!selectedDocument) {
-      toast.error("Por favor, selecciona un documento");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Obtener el contenido del documento seleccionado
-      const selectedResource = resources.find((r) => r.id === selectedDocument);
-      if (!selectedResource) {
-        throw new Error("No se pudo obtener el contenido del documento");
+  const handleGenerateSummary = useCallback(
+    async (isDetailed = false) => {
+      if (!selectedDocument) {
+        toast.error("Por favor, selecciona un documento");
+        return;
       }
 
-      console.log("Generando resumen para:", selectedResource);
-
-      let response;
-
-      if (!isDetailed) {
-        // Llamada a la API para generar resumen
-        response = await api.agent.generateBriefSummaryFromDocument(
-          collectionId,
-          selectedResource.id
+      setIsLoading(true);
+      try {
+        // Obtener el contenido del documento seleccionado
+        const selectedResource = resources.find(
+          (r) => r.id === selectedDocument
         );
-      } else {
-        // Llamada a la API para generar resumen detallado
-        response = await api.agent.generateLongSummaryFromDocument(
-          collectionId,
-          selectedResource.id
+        if (!selectedResource) {
+          throw new Error("No se pudo obtener el contenido del documento");
+        }
+
+        console.log("Generando resumen para:", selectedResource);
+
+        let response;
+
+        if (!isDetailed) {
+          // Llamada a la API para generar resumen
+          response = await api.agent.generateBriefSummaryFromDocument(
+            collectionId,
+            selectedResource.id
+          );
+        } else {
+          // Llamada a la API para generar resumen detallado
+          response = await api.agent.generateLongSummaryFromDocument(
+            collectionId,
+            selectedResource.id
+          );
+        }
+
+        console.log("Respuesta del resumen:", response);
+
+        // Formatear el contenido del resumen según sea detallado o breve
+        let summaryContent = response.summary;
+
+        // Guardar el resumen generado
+        setGeneratedSummary(summaryContent);
+        setIsSummaryDetailed(isDetailed);
+
+        const summaryMessage = {
+          role: "assistant",
+          content: `He generado un ${
+            isDetailed ? "resumen detallado" : "resumen breve"
+          } a partir del documento "${
+            selectedResource.fileName || "seleccionado"
+          }".`,
+          hasSummary: true,
+          summaryContent: summaryContent,
+          summaryType: isDetailed ? "detailed" : "brief",
+          documentName: selectedResource.fileName || "documento",
+        };
+
+        setMessages((prev) => [...prev, summaryMessage]);
+        setSummaryDialog(false);
+        setDetailedSummaryDialog(false);
+
+        // Expandir el panel lateral para mostrar el resumen
+        setGeneratedContentType("summary");
+        setIsContentExpanded(true);
+
+        toast.success(
+          `${
+            isDetailed ? "Resumen detallado" : "Resumen breve"
+          } generado correctamente`
         );
+      } catch (error) {
+        console.error("Error generando resumen:", error);
+        toast.error(
+          "Error al generar el resumen: " +
+            (error.message || "Error desconocido")
+        );
+      } finally {
+        setIsLoading(false);
       }
-
-      console.log("Respuesta del resumen:", response);
-
-      // Formatear el contenido del resumen según sea detallado o breve
-      let summaryContent = response.summary;
-
-      // Guardar el resumen generado
-      setGeneratedSummary(summaryContent);
-      setIsSummaryDetailed(isDetailed);
-
-      const summaryMessage = {
-        role: "assistant",
-        content: `He generado un ${
-          isDetailed ? "resumen detallado" : "resumen breve"
-        } a partir del documento "${
-          selectedResource.fileName || "seleccionado"
-        }".`,
-        hasSummary: true,
-        summaryContent: summaryContent,
-        summaryType: isDetailed ? "detailed" : "brief",
-        documentName: selectedResource.fileName || "documento",
-      };
-
-      setMessages((prev) => [...prev, summaryMessage]);
-      setSummaryDialog(false);
-      setDetailedSummaryDialog(false);
-
-      // Expandir el panel lateral para mostrar el resumen
-      setGeneratedContentType("summary");
-      setIsContentExpanded(true);
-
-      toast.success(
-        `${
-          isDetailed ? "Resumen detallado" : "Resumen breve"
-        } generado correctamente`
-      );
-    } catch (error) {
-      console.error("Error generando resumen:", error);
-      toast.error(
-        "Error al generar el resumen: " + (error.message || "Error desconocido")
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [selectedDocument, collectionId, api.agent]
+  );
 
   // Función para abrir el chat
-  const handleOpenChat = () => {
+  const handleOpenChat = useCallback(() => {
     // Primero movemos el botón al centro
     setButtonPosition("center");
 
     // Después de un breve retraso, abrimos el chat
     setTimeout(() => {
       setIsOpen(true);
-    }, 500);
-  };
+    }, 200); // Reducido de 500ms a 200ms para mayor fluidez
+  }, []);
 
   // Función para cerrar el chat
-  const handleCloseChat = () => {
+  const handleCloseChat = useCallback(() => {
     // Primero cerramos el chat
     setIsOpen(false);
     // También cerramos el panel de contenido si está abierto
@@ -319,22 +364,22 @@ const PetAgent = ({
     // Después de un breve retraso, movemos el botón de vuelta a la derecha
     setTimeout(() => {
       setButtonPosition("right");
-    }, 500);
-  };
+    }, 200); // Reducido de 500ms a 200ms para mayor fluidez
+  }, []);
 
   // Función para generar contenido de ejemplo (documento o flashcards)
-  const generateContent = (type) => {
+  const generateContent = useCallback((type) => {
     setGeneratedContentType(type);
     setIsContentExpanded(true);
-  };
+  }, []);
 
   // Función para alternar la visibilidad del panel de contenido
-  const toggleContentPanel = () => {
+  const toggleContentPanel = useCallback(() => {
     setIsContentExpanded(!isContentExpanded);
-  };
+  }, [isContentExpanded]);
 
   // Componente para mostrar un documento de ejemplo
-  const DocumentPreview = () => (
+  const DocumentPreview = memo(() => (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between border-b border-zinc-800 p-4">
         <h3 className="font-semibold text-white flex items-center">
@@ -384,10 +429,10 @@ const PetAgent = ({
         </div>
       </div>
     </div>
-  );
+  ));
 
   // Función para renderizar el diálogo de flashcards
-  const renderFlashcardDialog = () => {
+  const renderFlashcardDialog = useCallback(() => {
     return (
       <Dialog open={flashcardDialog} onOpenChange={setFlashcardDialog}>
         <DialogContent className="sm:max-w-[425px] bg-[#0A0A0F] border-zinc-800 text-white">
@@ -448,10 +493,10 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  };
+  }, [flashcardDialog, selectedDocument, numFlashcards, isLoading]);
 
   // Función para renderizar el diálogo de resumen breve
-  const renderSummaryDialog = () => {
+  const renderSummaryDialog = useCallback(() => {
     return (
       <Dialog open={summaryDialog} onOpenChange={setSummaryDialog}>
         <DialogContent className="sm:max-w-[425px] bg-[#0A0A0F] border-zinc-800 text-white">
@@ -495,10 +540,10 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  };
+  }, [summaryDialog, selectedDocument, isLoading]);
 
   // Función para renderizar el diálogo de resumen detallado
-  const renderDetailedSummaryDialog = () => {
+  const renderDetailedSummaryDialog = useCallback(() => {
     return (
       <Dialog
         open={detailedSummaryDialog}
@@ -545,10 +590,10 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  };
+  }, [detailedSummaryDialog, selectedDocument, isLoading]);
 
   // Función para renderizar mensajes
-  const renderMessage = (message, index) => {
+  const renderMessage = useCallback((message, index) => {
     if (message.role === "user") {
       return (
         <div key={index} className="flex justify-end mb-4">
@@ -637,9 +682,74 @@ const PetAgent = ({
               >
                 {message.content}
               </ReactMarkdown>
+
+              {/* Mostrar fuentes si están disponibles y no es una respuesta general */}
+              {message.sources &&
+                message.sources.length > 0 &&
+                !message.is_general_answer && (
+                  <div className="mt-3 pt-2 border-t border-zinc-700/50">
+                    <p className="text-xs font-medium bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 mb-1">
+                      Fuentes de información:
+                    </p>
+                    <div className="space-y-1.5">
+                      {message.sources.map((source, idx) => (
+                        <div
+                          key={idx}
+                          className="text-xs rounded bg-gradient-to-r from-blue-900/10 to-purple-900/10 border border-zinc-800/50"
+                        >
+                          <div className="px-2 py-1 flex items-center justify-between">
+                            <div className="flex items-center">
+                              <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 mr-2"></div>
+                              <span className="text-zinc-300 font-medium">
+                                {source.file_name}
+                              </span>
+                            </div>
+                          </div>
+                          {source.relevant_lines &&
+                            source.relevant_lines.length > 0 && (
+                              <div className="border-t border-zinc-800/50 px-2 py-1">
+                                <div className="text-zinc-400 text-[10px] mb-1">
+                                  Líneas relevantes:
+                                </div>
+                                <div className="space-y-1">
+                                  {source.relevant_lines.map(
+                                    (line, lineIdx) => (
+                                      <div
+                                        key={lineIdx}
+                                        className="flex text-[10px]"
+                                      >
+                                        <span className="text-zinc-500 mr-2">
+                                          L{line.line_number}:
+                                        </span>
+                                        <span className="text-zinc-300">
+                                          {line.content}
+                                        </span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* Mostrar indicador de respuesta general si es el caso */}
+              {message.is_general_answer && (
+                <div className="mt-3 pt-2 border-t border-zinc-700/50">
+                  <div className="flex items-center text-xs text-zinc-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-pink-400 to-purple-400 mr-2"></div>
+                    <span>
+                      Respuesta general basada en conocimiento del modelo
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          
+
           {/* Mostrar contenido generado debajo del mensaje */}
           {message.hasSummary && (
             <div className="ml-8 mt-2 mb-4">
@@ -648,7 +758,10 @@ const PetAgent = ({
                   <h4 className="font-medium text-sm flex items-center">
                     <FileText className="w-4 h-4 mr-2 text-blue-400" />
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                      {message.summaryType === "detailed" ? "Resumen Detallado" : "Resumen Breve"} - {message.documentName}
+                      {message.summaryType === "detailed"
+                        ? "Resumen Detallado"
+                        : "Resumen Breve"}{" "}
+                      - {message.documentName}
                     </span>
                   </h4>
                   <Button
@@ -667,48 +780,54 @@ const PetAgent = ({
                 </div>
                 <div className="p-3 max-h-40 overflow-y-auto text-sm text-zinc-300">
                   <ReactMarkdown>
-                    {message.summaryContent.length > 300 
-                      ? message.summaryContent.substring(0, 300) + "..." 
+                    {message.summaryContent.length > 300
+                      ? message.summaryContent.substring(0, 300) + "..."
                       : message.summaryContent}
                   </ReactMarkdown>
                 </div>
               </div>
             </div>
           )}
-          
-          {message.hasFlashcards && message.flashcards && message.flashcards.length > 0 && (
-            <div className="ml-8 mt-2 mb-4">
-              <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 backdrop-blur-sm border border-zinc-800 rounded-md overflow-hidden">
-                <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
-                  <h4 className="font-medium text-sm flex items-center">
-                    <Sparkles className="w-4 h-4 mr-2 text-blue-400" />
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                      {message.flashcards.length} Flashcards - {message.documentName}
-                    </span>
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setGeneratedFlashcards(message.flashcards);
-                      setGeneratedContentType("flashcards");
-                      setIsContentExpanded(true);
-                    }}
-                    className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-zinc-800/80"
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <div className="p-3 text-sm text-zinc-300">
-                  <p>Haz clic en el botón para ver todas las flashcards generadas.</p>
+
+          {message.hasFlashcards &&
+            message.flashcards &&
+            message.flashcards.length > 0 && (
+              <div className="ml-8 mt-2 mb-4">
+                <div className="bg-gradient-to-r from-blue-900/20 to-purple-900/20 backdrop-blur-sm border border-zinc-800 rounded-md overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+                    <h4 className="font-medium text-sm flex items-center">
+                      <Sparkles className="w-4 h-4 mr-2 text-blue-400" />
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                        {message.flashcards.length} Flashcards -{" "}
+                        {message.documentName}
+                      </span>
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setGeneratedFlashcards(message.flashcards);
+                        setGeneratedContentType("flashcards");
+                        setIsContentExpanded(true);
+                      }}
+                      className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-zinc-800/80"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <div className="p-3 text-sm text-zinc-300">
+                    <p>
+                      Haz clic en el botón para ver todas las flashcards
+                      generadas.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       );
     }
-  };
+  }, []);
 
   return (
     <>
@@ -717,7 +836,7 @@ const PetAgent = ({
         className="fixed bottom-6 z-50"
         style={{
           position: "fixed",
-          zIndex: 9999, // Aseguramos que esté por encima de todo
+          zIndex: 9999,
           bottom: "1.5rem",
         }}
         initial={{ y: 20, opacity: 0 }}
@@ -733,15 +852,14 @@ const PetAgent = ({
             : {
                 y: 0,
                 opacity: 1,
-                left: "calc(50vw - 32px)", // Centramos el botón (ancho del botón = 64px = 4rem = 16px * 4)
+                left: "calc(50vw - 32px)", // Centramos el botón
                 right: "auto",
                 x: 0,
               }
         }
         transition={{
-          duration: 0.7,
-          type: "spring",
-          bounce: 0.2,
+          duration: 0.2,
+          ease: [0.4, 0.0, 0.2, 1], // Curva de aceleración personalizada para mayor suavidad
         }}
       >
         <motion.button
@@ -771,24 +889,30 @@ const PetAgent = ({
       </motion.div>
 
       {/* Panel de chat */}
-      <AnimatePresence>
+      <AnimatePresence mode="sync">
         {isOpen && (
           <motion.div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: [0.4, 0.0, 0.2, 1] }}
           >
             <motion.div
               className={`relative flex h-[80vh] bg-[#0A0A0F] rounded-2xl shadow-xl overflow-hidden border border-zinc-800/50 transition-all duration-300 ${
-                isContentExpanded
-                  ? "w-[90vw] max-w-[1200px]"
-                  : "w-full max-w-md"
+                isContentExpanded ? "w-[90vw] max-w-[1200px]" : "w-[50vw]"
               }`}
-              initial={{ y: 50, opacity: 0 }}
+              style={{
+                width: isContentExpanded ? "90vw" : "50vw",
+                maxWidth: isContentExpanded ? "1200px" : "xl",
+              }}
+              initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              exit={{ y: 20, opacity: 0 }}
+              transition={{
+                duration: 0.15,
+                ease: [0.4, 0.0, 0.2, 1],
+              }}
             >
               {/* Efecto de gradiente en el fondo */}
               <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-purple-900/20 to-pink-900/20 opacity-50" />
@@ -848,11 +972,14 @@ const PetAgent = ({
                         message.role === "assistant" &&
                         message.id === "welcome"
                       ) {
-                        return renderMessage({
-                          ...message,
-                          hasGeneratedContent: generatedContentType !== null,
-                          contentType: generatedContentType,
-                        }, index);
+                        return renderMessage(
+                          {
+                            ...message,
+                            hasGeneratedContent: generatedContentType !== null,
+                            contentType: generatedContentType,
+                          },
+                          index
+                        );
                       } else {
                         return renderMessage(message, index);
                       }
@@ -910,11 +1037,14 @@ const PetAgent = ({
               {/* Panel de contenido generado (visible solo cuando está expandido) */}
               {isContentExpanded && (
                 <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "50%" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="relative flex flex-col border-l border-zinc-800/50 overflow-hidden"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{
+                    duration: 0.15,
+                    ease: [0.4, 0.0, 0.2, 1],
+                  }}
+                  className="relative flex flex-col border-l border-zinc-800/50 overflow-hidden w-1/2"
                   style={{
                     background:
                       "linear-gradient(to bottom right, rgba(30, 41, 59, 0.2), rgba(124, 58, 237, 0.05), rgba(219, 39, 119, 0.05))",
@@ -955,4 +1085,4 @@ const PetAgent = ({
   );
 };
 
-export default PetAgent;
+export default memo(PetAgent);

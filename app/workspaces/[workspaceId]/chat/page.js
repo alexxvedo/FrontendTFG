@@ -28,7 +28,11 @@ export default function ChatPage() {
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [isSending, setIsSending] = useState(false);
   const typingTimeoutRef = useRef(null);
-  const { socket, user: socketUser, requestConnectedUsers } = useWorkspaceSocket();
+  const {
+    socket,
+    user: socketUser,
+    requestConnectedUsers,
+  } = useWorkspaceSocket();
 
   const lastMessageRef = useRef(null);
   const api = useApi();
@@ -151,6 +155,10 @@ export default function ChatPage() {
 
       setChatMessages(formattedMessages);
     } catch (error) {
+      if (error.response?.status === 404) {
+        setChatMessages([]);
+        return;
+      }
       console.error("Error obteniendo mensajes del chat:", error);
       setError(
         "No se pudieron cargar los mensajes. Por favor, intenta de nuevo más tarde."

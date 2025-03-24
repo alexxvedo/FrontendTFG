@@ -24,15 +24,19 @@ import { useStudySessionStore } from "@/store/studySession-store/studySession-st
 import { useUserStore } from "@/store/user-store/user-store";
 import { useApi } from "@/lib/api";
 import PomodoroTimer from "@/components/pomodoro/PomodoroTimer";
+import { useSession } from "next-auth/react";
 
 export default function StudySession({ params }) {
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
+  const { data: session } = useSession();
+  const user = session?.user;
   const activeCollection = useCollectionStore(
     (state) => state.activeCollection
   );
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
   const studySession = useStudySessionStore((state) => state.studySession);
+
+  console.log(studySession);
   const api = useApi();
 
   const [flashcards, setFlashcards] = useState([]);
@@ -45,70 +49,29 @@ export default function StudySession({ params }) {
   const [completedCards, setCompletedCards] = useState(0);
 
   useEffect(() => {
-    const fetchFlashcards = async () => {
-      try {
-        const response = await api.flashcards.listByCollection(
-          params.collectionId
-        );
-        const data = response.data;
-
-        // Incluir todas las flashcards que no están completadas
-        const filteredFlashcards = data.filter(
-          (card) => !card.completionDate && card.status === "SIN_HACER"
-        );
-
-        setFlashcards(filteredFlashcards);
-        setTotalCards(filteredFlashcards.length);
-      } catch (error) {
-        console.error("Error fetching flashcards:", error);
-      }
-    };
-
-    fetchFlashcards();
-  }, [params.collectionId]);
+    setFlashcards(studySession.flashcards || []);
+    setTotalCards(studySession.totalCards || 0);
+    setCompletedCards(studySession.completedCards || 0);
+    setStudyProgress(studySession.studyProgress || 0);
+    setSessionCompleted(studySession.sessionCompleted || false);
+  }, [studySession]);
 
   const handleEvaluation = async (status) => {
     try {
-      // Calcular el siguiente intervalo de repaso basado en el resultado
-      const now = new Date();
-      let nextReviewDate = new Date();
-
-      // Implementar el algoritmo SM-2 de repetición espaciada
-      const getNextReviewInterval = (status) => {
-        switch (status) {
-          case "MAL": // Si la respuesta fue incorrecta
-            return 1; // Revisar en 1 día
-          case "REGULAR": // Si la respuesta fue parcialmente correcta
-            return 3; // Revisar en 3 días
-          case "BIEN": // Si la respuesta fue correcta
-            return 7; // Revisar en 7 días
-          default:
-            return 1;
-        }
-      };
-
-      const intervalDays = getNextReviewInterval(status);
-      nextReviewDate.setDate(nextReviewDate.getDate() + intervalDays);
-
       // Convertir el estado de evaluación a un resultado de revisión
       const reviewResult = {
         flashcardId: flashcards[currentCardIndex].id,
-        collectionId: params.collectionId,
-        result:
-          status === "MAL"
+        userId: user.id,
+        reviewResult:
+          status === "WRONG"
             ? "WRONG"
-            : status === "REGULAR"
+            : status === "PARTIAL"
             ? "PARTIAL"
             : "CORRECT",
-        timeSpentMs: 0, // TODO: Implementar tracking de tiempo
-        nextReviewDate: nextReviewDate.toISOString(),
       };
 
       // Enviar la revisión al backend
-      await api.flashcards.submitReview(
-        flashcards[currentCardIndex].id,
-        reviewResult
-      );
+      await api.flashcards.updateProgress(reviewResult);
 
       // Incrementar el contador de tarjetas completadas
       setCompletedCards((prev) => prev + 1);
@@ -148,7 +111,7 @@ export default function StudySession({ params }) {
     >
       <Button
         variant="ghost"
-        onClick={() => handleEvaluation("MAL")}
+        onClick={() => handleEvaluation("WRONG")}
         className={`
           relative h-20 w-20 rounded-full transition-all duration-300
           hover:bg-red-500/20 hover:scale-110
@@ -160,7 +123,7 @@ export default function StudySession({ params }) {
       </Button>
       <Button
         variant="ghost"
-        onClick={() => handleEvaluation("REGULAR")}
+        onClick={() => handleEvaluation("PARTIAL")}
         className={`
           relative h-20 w-20 rounded-full transition-all duration-300
           hover:bg-yellow-500/20 hover:scale-110
@@ -172,7 +135,7 @@ export default function StudySession({ params }) {
       </Button>
       <Button
         variant="ghost"
-        onClick={() => handleEvaluation("BIEN")}
+        onClick={() => handleEvaluation("CORRECT")}
         className={`
           relative h-20 w-20 rounded-full transition-all duration-300
           hover:bg-green-500/20 hover:scale-110
@@ -277,7 +240,7 @@ export default function StudySession({ params }) {
           <Progress
             value={studyProgress}
             className="flex-1 h-3 rounded-full overflow-hidden"
-            indicatorClassName="bg-gradient-to-r from-purple-500 to-pink-600 transition-all duration-500 ease-in-out"
+            indicatorclassname="bg-gradient-to-r from-purple-500 to-pink-600 transition-all duration-500 ease-in-out"
           />
           <span className="text-zinc-500 dark:text-zinc-400 ml-4 text-sm">
             {completedCards} / {totalCards}

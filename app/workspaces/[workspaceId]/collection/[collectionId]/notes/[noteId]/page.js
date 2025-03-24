@@ -43,6 +43,8 @@ export default function NotePage() {
         }
 
         const response = await api.notes.getNotes(collectionId);
+
+        console.log(response);
         const foundNote = response.find((note) => note.id === parseInt(noteId));
         if (foundNote) {
           setNote(foundNote);

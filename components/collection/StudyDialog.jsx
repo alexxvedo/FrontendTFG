@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { useApi } from "@/lib/api";
 import { useStudySessionStore } from "@/store/studySession-store/studySession-store";
+import { useSession } from "next-auth/react";
 
 export default function StudyDialog({
   isStudyDialogOpen,
@@ -18,6 +19,8 @@ export default function StudyDialog({
   studyMode,
   setStudyMode,
 }) {
+  const { data: session } = useSession();
+  const user = session?.user;
   const api = useApi();
   const { updateStudySession } = useStudySessionStore();
   const { workspaceId, collectionId } = useParams();
@@ -28,6 +31,9 @@ export default function StudyDialog({
       const studySession = await api.studySessions.create({
         collectionId: collectionId,
         mode: studyMode === "FREE" ? "FREE" : "SPACED_REPETITION",
+        user: {
+          email: user.email,
+        },
       });
 
       updateStudySession(studySession.data);

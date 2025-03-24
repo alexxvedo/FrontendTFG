@@ -30,15 +30,25 @@ export default function Dashboard({ params }) {
   const api = useApi();
   const { connectedUsers, socket, user: socketUser } = useWorkspaceSocket();
 
+  const [activity, setActivity] = useState([]);
+
   const getUsers = async () => {
     if (!activeWorkspace) return;
     const response = await api.workspaces.getUsers(activeWorkspace.id);
     setAllUsers(response.data);
   };
 
+  const getActivity = async () => {
+    if (!activeWorkspace) return;
+    const response = await api.activity.getActivity(activeWorkspace.id);
+    setActivity(response.data);
+  };
+
   useEffect(() => {
     getUsers();
-  }, [activeWorkspace]);
+    getActivity();
+    console.log("Connected users: ", connectedUsers);
+  }, [activeWorkspace, socket]);
 
   useEffect(() => {
     if (socket && activeWorkspace?.id) {
@@ -51,6 +61,8 @@ export default function Dashboard({ params }) {
       };
     }
   }, [socket, activeWorkspace]);
+
+  if (!connectedUsers || !socket || !activeWorkspace) return null;
 
   return (
     <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
@@ -122,11 +134,15 @@ export default function Dashboard({ params }) {
           <TabsContent value="overview" className="space-y-6">
             <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
-              <Overview connectedUsers={connectedUsers} allUsers={allUsers} />
+              <Overview
+                connectedUsers={connectedUsers || []}
+                allUsers={allUsers}
+                activities={activity.length}
+              />
             </div>
             <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
-              <ActivityList className="w-full flex-1" />
+              <ActivityList className="w-full flex-1" activityList={activity} />
             </div>
           </TabsContent>
           <TabsContent value="members" className="space-y-6">
