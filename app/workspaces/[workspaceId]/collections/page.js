@@ -26,7 +26,7 @@ function CollectionsListWithSocket({
   return (
     <div className="relative min-h-screen">
       <Background />
-      <div className="relative flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="relative flex-1 space-y-4 p-4 md:p-8 pt-6 min-h-screen">
         <CollectionsList
           collections={collections}
           onCollectionCreate={onCollectionCreate}
@@ -176,12 +176,14 @@ export default function CollectionsPage() {
   }
 
   return (
-    <CollectionsListWithSocket
-      collections={collections}
-      onCollectionCreate={handleCreateCollection}
-      onCollectionUpdate={handleUpdateCollection}
-      onCollectionDelete={handleDeleteCollection}
-      handleCollectionClick={handleCollectionClick}
-    />
+    <div className="h-full">
+      <CollectionsListWithSocket
+        collections={collections}
+        onCollectionCreate={handleCreateCollection}
+        onCollectionUpdate={handleUpdateCollection}
+        onCollectionDelete={handleDeleteCollection}
+        handleCollectionClick={handleCollectionClick}
+      />
+    </div>
   );
 }

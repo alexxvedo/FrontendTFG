@@ -36,6 +36,10 @@ import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 import { useApi } from "@/lib/api";
 import { toast } from "sonner";
 
+import dynamic from "next/dynamic";
+
+const Picker = dynamic(() => import("emoji-picker-react"), { ssr: false });
+
 export function WorkspaceSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,6 +57,8 @@ export function WorkspaceSwitcher() {
   const updateActiveWorkspace = useSidebarStore(
     (state) => state.updateActiveWorkspace
   );
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Cargar workspaces al inicio
   useEffect(() => {
@@ -245,12 +251,40 @@ export function WorkspaceSwitcher() {
         <form onSubmit={handleCreateWorkspace}>
           <div className="space-y-4 py-2 pb-4">
             <div className="space-y-2">
-              <Input
-                placeholder="Workspace name"
-                value={workspaceName}
-                onChange={(e) => setWorkspaceName(e.target.value)}
-                className="bg-zinc-800 border-zinc-700 text-white focus:ring-purple-500/30 focus:border-purple-500/50"
-              />
+              <div className="relative">
+                <Input
+                  placeholder="Workspace name"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  className="pr-10 bg-zinc-800 border-zinc-700 text-white focus:ring-purple-500/30 focus:border-purple-500/50"
+                />
+                {/* Botón para mostrar/ocultar el picker */}
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker((v) => !v)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xl"
+                  aria-label="Emoji picker"
+                >
+                  😊
+                </button>
+
+                {/* Emoji picker */}
+                {showEmojiPicker && (
+                  <div className="absolute z-50 mt-1">
+                    <Picker
+                      onEmojiClick={(
+                        emojiData /* primer argumento */,
+                        event /* opcional */
+                      ) => {
+                        setWorkspaceName((prev) => prev + emojiData.emoji);
+                        setShowEmojiPicker(false);
+                      }}
+                      disableAutoFocus={true}
+                      native
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>

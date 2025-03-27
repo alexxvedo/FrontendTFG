@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,8 @@ import {
   Users,
 } from "lucide-react";
 
+import { useApi } from "@/lib/api";
+
 export function UserProfileDialog({ isOpen, onClose, user }) {
   // Datos de ejemplo - En una implementación real, estos vendrían de la base de datos
   const stats = {
@@ -39,6 +41,22 @@ export function UserProfileDialog({ isOpen, onClose, user }) {
       { name: "Knowledge Master", icon: Brain },
     ],
   };
+  const [userStats, setUserStats] = useState(null);
+
+  const api = useApi();
+
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      try {
+        const response = await api.userStats.getUserStats(user.email);
+        console.log("User stats: ", response);
+        setUserStats(response);
+      } catch (error) {
+        console.error("Error fetching user stats:", error);
+      }
+    };
+    fetchUserStats();
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -48,7 +66,7 @@ export function UserProfileDialog({ isOpen, onClose, user }) {
             Profile
           </DialogTitle>
         </DialogHeader>
-        
+
         <ScrollArea className="max-h-[80vh]">
           {/* Hero Section */}
           <div className="relative">
@@ -81,27 +99,33 @@ export function UserProfileDialog({ isOpen, onClose, user }) {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <StatCard icon={Clock} label="Study Time" value={stats.studyTime} />
+              <StatCard
+                icon={Clock}
+                label="Study Time"
+                value={userStats?.studySeconds / 60}
+              />
               <StatCard
                 icon={BookOpen}
                 label="Flashcards"
-                value={stats.flashcardsCreated}
+                value={userStats?.createdFlashcards}
               />
               <StatCard
                 icon={Brain}
-                label="Study Sessions"
-                value={stats.studySessions}
+                label="Studied Flashcards"
+                value={userStats?.studiedFlashcards}
               />
               <StatCard
                 icon={Users}
-                label="Collaborators"
-                value={stats.collaborators}
+                label="Level"
+                value={userStats?.expLevel}
               />
             </div>
 
             {/* Achievements */}
             <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-4 text-white">Achievements</h3>
+              <h3 className="text-lg font-semibold mb-4 text-white">
+                Achievements
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {stats.achievements.map((achievement, index) => (
                   <div
@@ -111,7 +135,9 @@ export function UserProfileDialog({ isOpen, onClose, user }) {
                     <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-600/20 to-purple-600/20 flex items-center justify-center">
                       <achievement.icon className="h-5 w-5 text-purple-400" />
                     </div>
-                    <span className="font-medium text-white">{achievement.name}</span>
+                    <span className="font-medium text-white">
+                      {achievement.name}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -119,7 +145,9 @@ export function UserProfileDialog({ isOpen, onClose, user }) {
 
             {/* Activity Overview */}
             <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-4 text-white">Activity Overview</h3>
+              <h3 className="text-lg font-semibold mb-4 text-white">
+                Activity Overview
+              </h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 rounded-lg border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm hover:bg-zinc-800/70 transition-colors">
                   <div className="flex items-center gap-3">
@@ -128,9 +156,7 @@ export function UserProfileDialog({ isOpen, onClose, user }) {
                     </div>
                     <div>
                       <p className="font-medium text-white">Joined</p>
-                      <p className="text-sm text-gray-400">
-                        {stats.joinDate}
-                      </p>
+                      <p className="text-sm text-gray-400">{stats.joinDate}</p>
                     </div>
                   </div>
                 </div>
