@@ -476,6 +476,7 @@ const PetAgent = ({
                   <SelectItem value="5">5 flashcards</SelectItem>
                   <SelectItem value="10">10 flashcards</SelectItem>
                   <SelectItem value="15">15 flashcards</SelectItem>
+                  <SelectItem value="50">50 flashcards</SelectItem>
                 </SelectContent>
               </Select>
             </div>

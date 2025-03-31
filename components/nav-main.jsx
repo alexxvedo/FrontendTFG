@@ -66,7 +66,7 @@ export function NavMain({ items, isCollapsed }) {
 
   return (
     <SidebarGroup>
-      <Separator className="mb-2 dark:bg-white/10 bg-zinc-200" />
+      <Separator className="my-2 dark:bg-white/10 bg-zinc-800" />
 
       <SidebarGroupLabel>Navigation</SidebarGroupLabel>
 

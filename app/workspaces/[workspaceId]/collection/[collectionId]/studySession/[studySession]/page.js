@@ -35,6 +35,7 @@ export default function StudySession({ params }) {
   );
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
   const studySession = useStudySessionStore((state) => state.studySession);
+  const startTimeRef = useRef(Date.now());
 
   console.log(studySession);
   const api = useApi();
@@ -58,16 +59,19 @@ export default function StudySession({ params }) {
 
   const handleEvaluation = async (status) => {
     try {
+      const studyTimeInSeconds = Math.round(
+        (Date.now() - startTimeRef.current) / 1000
+      );
+
+      startTimeRef.current = Date.now();
+
       // Convertir el estado de evaluación a un resultado de revisión
       const reviewResult = {
         flashcardId: flashcards[currentCardIndex].id,
         userId: user.id,
         reviewResult:
-          status === "WRONG"
-            ? "WRONG"
-            : status === "PARTIAL"
-            ? "PARTIAL"
-            : "CORRECT",
+          status === "MAL" ? "MAL" : status === "REGULAR" ? "REGULAR" : "BIEN",
+        studyTimeInSeconds: studyTimeInSeconds,
       };
 
       // Enviar la revisión al backend
@@ -96,6 +100,7 @@ export default function StudySession({ params }) {
         setCurrentCardIndex(newIndex);
       } else {
         setSessionCompleted(true);
+        await api.studySessions.complete(studySession.id);
       }
     } catch (error) {
       console.error("Error updating flashcard:", error);
@@ -111,7 +116,7 @@ export default function StudySession({ params }) {
     >
       <Button
         variant="ghost"
-        onClick={() => handleEvaluation("WRONG")}
+        onClick={() => handleEvaluation("MAL")}
         className={`
           relative h-20 w-20 rounded-full transition-all duration-300
           hover:bg-red-500/20 hover:scale-110
@@ -123,7 +128,7 @@ export default function StudySession({ params }) {
       </Button>
       <Button
         variant="ghost"
-        onClick={() => handleEvaluation("PARTIAL")}
+        onClick={() => handleEvaluation("REGULAR")}
         className={`
           relative h-20 w-20 rounded-full transition-all duration-300
           hover:bg-yellow-500/20 hover:scale-110
@@ -135,7 +140,7 @@ export default function StudySession({ params }) {
       </Button>
       <Button
         variant="ghost"
-        onClick={() => handleEvaluation("CORRECT")}
+        onClick={() => handleEvaluation("BIEN")}
         className={`
           relative h-20 w-20 rounded-full transition-all duration-300
           hover:bg-green-500/20 hover:scale-110

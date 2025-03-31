@@ -11,7 +11,19 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Bot, ArrowLeft, Play, Clock, Users } from "lucide-react";
+import {
+  Plus,
+  Bot,
+  ArrowLeft,
+  Play,
+  Clock,
+  Users,
+  Star,
+  Trophy,
+  Target,
+  Zap,
+  Flame,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
@@ -31,6 +43,7 @@ import Stats from "@/components/flashcards/stats";
 import { Skeleton } from "@/components/ui/skeleton";
 import SpacedStudyMode from "@/components/flashcards/SpacedStudyMode";
 import Agent from "@/components/agent/Agent";
+import GameStats from "@/components/collection/GameStats";
 
 import CollectionTabs from "@/components/collection/CollectionTabs";
 import StudyDialog from "@/components/collection/StudyDialog";
@@ -274,7 +287,7 @@ export default function CollectionPage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="flex flex-col items-center gap-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 dark:border-pink-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 dark:border-blue-500"></div>
           <p className="text-sm text-muted-foreground dark:text-gray-400">
             Loading collection...
           </p>
@@ -299,20 +312,35 @@ export default function CollectionPage() {
     <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
       <Background />
 
-      <div className="sticky top-0 z-50 backdrop-blur-xl">
+      <div className="sticky top-0 z-50 backdrop-blur-xl border-b border-blue-900/20">
         <div className="container min-w-full mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-4">
               <Link
                 href={`/workspaces/${workspaceId}/collections`}
-                className="flex items-center gap-2 text-zinc-600 hover:text-purple-600 dark:text-zinc-400 dark:hover:text-purple-400 transition-colors"
+                className="flex items-center gap-2 text-zinc-600 hover:text-blue-400 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5" />
                 <span className="font-medium">Volver</span>
               </Link>
-              <h2 className="text-3xl font-bold  bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
-                {collection.name}
-              </h2>
+              <div className="flex flex-col">
+                <h2 className="text-3xl font-bold ">{collection.name}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 text-yellow-500" />
+                    <span className="text-sm font-medium text-yellow-500">
+                      Nivel {Math.floor(collection.flashcards?.length / 5) + 1}
+                    </span>
+                  </div>
+                  <div className="h-4 w-px bg-zinc-700/50" />
+                  <div className="flex items-center gap-1">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm font-medium text-orange-500">
+                      {collection.flashcards?.length || 0} Flashcards
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-between gap-4">
@@ -320,43 +348,14 @@ export default function CollectionPage() {
                 {/* Botón Añadir Flashcard */}
                 <button
                   onClick={() => setOpenEditor(true)}
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm px-4 text-sm font-medium text-zinc-950 dark:text-zinc-200 shadow-md shadow-zinc-800/5 ring-1 ring-zinc-900/5 dark:ring-zinc-700/50 transition duration-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:shadow-zinc-800/10 hover:text-purple-700 dark:hover:text-purple-300"
+                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white/5 backdrop-blur-sm px-4 text-sm font-medium text-zinc-200 shadow-lg shadow-blue-500/10 ring-1 ring-blue-400/20 transition duration-300 hover:shadow-blue-500/20 hover:ring-blue-400/40"
                 >
                   <Plus className="h-4 w-4" />
                   <span className="font-medium">Nueva Flashcard</span>
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
 
-                {/* 
-                <button
-                  onClick={() => setIsAIDialogOpen(true)}
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 px-4 text-sm font-medium text-white shadow-md shadow-purple-500/20 transition duration-300 hover:from-purple-400 hover:to-pink-500 hover:shadow-purple-500/30 dark:from-purple-400 dark:to-pink-500 dark:shadow-purple-400/20 dark:hover:from-purple-300 dark:hover:to-pink-400"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="transition-transform duration-300 group-hover:rotate-180"
-                    >
-                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-                      <path d="M5 3v4" />
-                      <path d="M19 17v4" />
-                      <path d="M3 5h4" />
-                      <path d="M17 19h4" />
-                    </svg>
-                    <span className="font-medium">Generar con IA</span>
-                  </div>
-                </button>
-
-                */}
-
-                <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700/50" />
+                <div className="h-6 w-px bg-zinc-700/50" />
 
                 {/* Botón Práctica Libre */}
                 <button
@@ -364,12 +363,13 @@ export default function CollectionPage() {
                     setStudyMode("FREE");
                     setIsStudyDialogOpen(true);
                   }}
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm font-medium text-white shadow-md shadow-indigo-500/20 transition duration-300 hover:opacity-90 hover:shadow-indigo-500/30"
+                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500/80 to-purple-500/80 px-4 text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition duration-300 hover:shadow-blue-500/30"
                 >
                   <div className="flex items-center gap-2">
                     <Play className="h-4 w-4" />
                     <span className="font-medium">Práctica Libre</span>
                   </div>
+                  <div className="absolute -inset-px rounded-xl bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-20 transition-opacity" />
                 </button>
 
                 {/* Botón Repaso Espaciado */}
@@ -378,27 +378,68 @@ export default function CollectionPage() {
                     setStudyMode("SPACED");
                     setIsStudyDialogOpen(true);
                   }}
-                  className="relative inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 text-sm font-medium text-white shadow-md shadow-purple-500/20 transition duration-300 hover:opacity-90 hover:shadow-purple-500/30"
+                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500/80 to-pink-500/80 px-4 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition duration-300 hover:shadow-purple-500/30"
                 >
                   <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
+                    <Zap className="h-4 w-4" />
                     <span className="font-medium">Repaso Espaciado</span>
                   </div>
                 </button>
               </div>
             </div>
           </div>
+
+          {/* Progress Bar */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-zinc-400">
+                  Progreso de la Colección
+                </span>
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+                  <Target className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs font-medium text-blue-500">
+                    {Math.min(
+                      100,
+                      Math.floor(
+                        ((collection.flashcards?.length || 0) / 20) * 100
+                      )
+                    )}
+                    % Completado
+                  </span>
+                </div>
+              </div>
+              <span className="text-sm font-medium text-zinc-400">
+                {collection.flashcards?.length || 0}/20 Tarjetas
+              </span>
+            </div>
+            <div className="h-2 w-full bg-zinc-800/50 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 relative"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.floor(
+                      ((collection.flashcards?.length || 0) / 20) * 100
+                    )
+                  )}%`,
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent animate-shimmer" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-blue-900/20" />
 
       <div className="container relative min-w-full mx-auto px-6 pt-4">
+        {/*<GameStats collection={collection} />*/}
         <div className="flex justify-center">
           <CollectionTabs collection={collection} isLoading={isLoading} />
         </div>
       </div>
-
       <FlashcardEditor
         open={openEditor}
         onOpenChange={setOpenEditor}

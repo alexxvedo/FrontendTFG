@@ -6,6 +6,9 @@ import {
   LogOut,
   Sparkles,
   UserCircle,
+  Star,
+  Trophy,
+  Zap,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -35,6 +38,8 @@ import { useState, useEffect } from "react";
 import SignOutButton from "@/components/signOutButton";
 import { UserProfileDialog } from "@/components/user/user-profile-dialog";
 import { useSession } from "next-auth/react";
+import { Progress } from "@/components/ui/progress";
+import { useApi } from "@/lib/api";
 
 export function NavUser({ user }) {
   const { isMobile } = useSidebar();
@@ -42,12 +47,32 @@ export function NavUser({ user }) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userStats, setUserStats] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const clearWorkspaces = useSidebarStore((state) => state.clearWorkspaces);
+  const api = useApi();
 
   // Evitar hidratación incorrecta
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Cargar estadísticas del usuario
+  const fetchUserStats = async () => {
+    try {
+      const stats = await api.userStats.getUserStats(user.email);
+      setUserStats(stats);
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+    }
+  };
+
+  // Actualizar stats cuando se abre el dropdown
+  useEffect(() => {
+    if (isDropdownOpen && user?.email) {
+      fetchUserStats();
+    }
+  }, [isDropdownOpen, user?.email]);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -56,14 +81,14 @@ export function NavUser({ user }) {
   return (
     <>
       <UserProfileDialog
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
+        open={isProfileOpen}
+        onOpenChange={setIsProfileOpen}
         user={user}
       />
 
       <SidebarMenu>
         <SidebarMenuItem>
-          <DropdownMenu>
+          <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
@@ -120,6 +145,55 @@ export function NavUser({ user }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-zinc-200/50 dark:bg-purple-500/20" />
 
+              {/* Experience and Level Section */}
+              <div className="px-2 py-2">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-4 w-4 text-yellow-500" />
+                    <span className="text-sm font-medium text-zinc-900 dark:text-white">
+                      Level {userStats?.level || 1}
+                    </span>
+                  </div>
+                  <span className="text-xs text-zinc-500 dark:text-gray-400">
+                    {userStats?.experience || 0} /{" "}
+                    {userStats?.experienceToNextLevel || 1000} XP
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    ((userStats?.experience || 0) /
+                      (userStats?.experienceToNextLevel || 1000)) *
+                    100
+                  }
+                  className="h-2 bg-zinc-200 dark:bg-zinc-800"
+                />
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="flex items-center gap-1.5 rounded-md bg-zinc-100/50 dark:bg-zinc-800/50 px-2 py-1">
+                    <Trophy className="h-4 w-4 text-amber-500" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-zinc-900 dark:text-white">
+                        {userStats?.unlockedAchievements?.length || 0}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-gray-400">
+                        Achievements
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-md bg-zinc-100/50 dark:bg-zinc-800/50 px-2 py-1">
+                    <Zap className="h-4 w-4 text-purple-500" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-zinc-900 dark:text-white">
+                        {userStats?.dailyStreak || 0}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-gray-400">
+                        Day Streak
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DropdownMenuSeparator className="bg-zinc-200/50 dark:bg-purple-500/20" />
+
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   onClick={() => setIsProfileOpen(true)}
@@ -128,7 +202,10 @@ export function NavUser({ user }) {
                   <UserCircle className="mr-2 h-4 w-4 text-blue-500 dark:text-blue-400" />
                   Account
                 </DropdownMenuItem>
-
+                <DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
+                  <Bell className="mr-2 h-4 w-4 text-pink-500 dark:text-pink-400" />
+                  Notifications
+                </DropdownMenuItem>
                 <DropdownMenuItem className="flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
                   {theme === "dark" ? (
                     <Moon className="mr-2 h-4 w-4 text-purple-500 dark:text-purple-400" />
@@ -144,10 +221,6 @@ export function NavUser({ user }) {
                     onCheckedChange={toggleTheme}
                     className="data-[state=checked]:bg-purple-600"
                   />
-                </DropdownMenuItem>
-                <DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
-                  <Bell className="mr-2 h-4 w-4 text-pink-500 dark:text-pink-400" />
-                  Notifications
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator className="bg-zinc-200/50 dark:bg-purple-500/20" />

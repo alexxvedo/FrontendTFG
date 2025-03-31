@@ -21,6 +21,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import ActivityList from "@/components/dashboard/ActivityList";
 import Overview from "@/components/dashboard/Overview";
 import Members from "@/components/dashboard/Members";
+import Rankings from "@/components/dashboard/Rankings";
 
 export default function Dashboard({ params }) {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
@@ -31,11 +32,26 @@ export default function Dashboard({ params }) {
   const { connectedUsers, socket, user: socketUser } = useWorkspaceSocket();
 
   const [activity, setActivity] = useState([]);
+  const [usersWithStats, setUsersWithStats] = useState([]);
 
   const getUsers = async () => {
     if (!activeWorkspace) return;
     const response = await api.workspaces.getUsers(activeWorkspace.id);
     setAllUsers(response.data);
+
+    // Obtener estadísticas para cada usuario
+    const usersStats = await Promise.all(
+      response.data.map(async (user) => {
+        try {
+          const stats = await api.userStats.getUserStats(user.email);
+          return { ...user, stats };
+        } catch (error) {
+          console.error(`Error fetching stats for user ${user.email}:`, error);
+          return { ...user, stats: null };
+        }
+      })
+    );
+    setUsersWithStats(usersStats);
   };
 
   const getActivity = async () => {
@@ -130,10 +146,16 @@ export default function Dashboard({ params }) {
             >
               Miembros
             </TabsTrigger>
+            <TabsTrigger
+              value="rankings"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500/10 data-[state=active]:to-pink-500/10 data-[state=active]:text-foreground dark:data-[state=active]:from-purple-500/20 dark:data-[state=active]:to-pink-500/20 dark:data-[state=active]:text-white text-muted-foreground dark:text-gray-400"
+            >
+              Rankings
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="space-y-6">
             <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl pointer-events-none" />
               <Overview
                 connectedUsers={connectedUsers || []}
                 allUsers={allUsers}
@@ -141,14 +163,20 @@ export default function Dashboard({ params }) {
               />
             </div>
             <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl pointer-events-none" />
               <ActivityList className="w-full flex-1" activityList={activity} />
             </div>
           </TabsContent>
           <TabsContent value="members" className="space-y-6">
             <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl pointer-events-none" />
               <Members activeWorkspace={activeWorkspace} />
+            </div>
+          </TabsContent>
+          <TabsContent value="rankings" className="space-y-6">
+            <div className="relative p-1 rounded-xl overflow-hidden backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/3 via-pink-500/3 to-gray-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/5 rounded-xl pointer-events-none" />
+              <Rankings users={usersWithStats} />
             </div>
           </TabsContent>
         </Tabs>
