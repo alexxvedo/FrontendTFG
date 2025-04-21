@@ -21,6 +21,7 @@ export default function CollectionNotes() {
   const user = session?.user;
 
   const handleNoteCreated = useCallback((note) => {
+    console.log(note);
     setNotes((prevNotes) => [...prevNotes, note]);
     setIsCreateDialogOpen(false);
   }, []);

@@ -51,7 +51,7 @@ export function CollectionsList({
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/3 via-pink-500/3 to-gray-500/2 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/3 rounded-xl pointer-events-none" />
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-                  <CardTitle className="text-xl font-semibold bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
+                  <CardTitle className="text-2xl font-semibold bg-clip-text">
                     {collection.name}
                   </CardTitle>
                   <div

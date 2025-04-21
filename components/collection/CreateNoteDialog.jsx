@@ -35,12 +35,12 @@ export default function CreateNoteDialog({
     setIsSubmitting(true);
 
     try {
-      const note = await api.notes.createNote(
-        collectionId,
-        user.email,
-        noteName.trim(),
-        ""
-      );
+      const note = await api.notes.create(collectionId, user.email, {
+        noteName: noteName.trim(),
+        content: "",
+      });
+
+      console.log(note);
 
       onNoteCreated?.(note);
       onClose();

@@ -44,11 +44,31 @@ export default function NotePage() {
 
         const response = await api.notes.getNotes(collectionId);
 
-        console.log(response);
+        console.log("Notas cargadas:", response);
+
         const foundNote = response.find((note) => note.id === parseInt(noteId));
         if (foundNote) {
+          console.log("Nota encontrada:", foundNote);
+          console.log("Tipo de content:", typeof foundNote.content);
+          
           setNote(foundNote);
-          setContent(foundNote.content);
+          try {
+            const parsedContent =
+              typeof foundNote.content === "string" && foundNote.content
+                ? JSON.parse(foundNote.content)
+                : foundNote.content || "";
+            console.log("Contenido parseado:", parsedContent);
+            setContent(parsedContent);
+          } catch (e) {
+            console.error("Error parsing note content:", e);
+            console.log("Contenido original:", foundNote.content);
+            // Si no podemos parsear el contenido, usamos un documento vacío pero válido para Tiptap
+            const emptyDocument = {
+              type: "doc",
+              content: [{ type: "paragraph" }]
+            };
+            setContent(emptyDocument);
+          }
         }
       } catch (error) {
         console.error("Error loading note:", error);
@@ -61,13 +81,14 @@ export default function NotePage() {
 
   const handleSave = async () => {
     try {
+      console.log(JSON.stringify(content));
       setIsSaving(true);
-      await api.notes.update(parseInt(noteId), {
+      await api.notes.update(collectionId, parseInt(noteId), {
         noteName: note.noteName,
-        content: content,
+        content: JSON.stringify(content),
       });
       toast.success("Nota guardada correctamente");
-      router.push(`/workspaces/${workspaceId}/collection/${collectionId}`);
+      //router.push(`/workspaces/${workspaceId}/collection/${collectionId}`);
     } catch (error) {
       console.error("Error saving note:", error);
       toast.error("Error al guardar la nota");
