@@ -115,14 +115,17 @@ export function WorkspaceSwitcher() {
         // Primero actualizamos el estado para evitar que el router revierta el cambio
         updateActiveWorkspace(workspace);
 
-        // Usamos push en lugar de replace para forzar una nueva entrada en el historial
-        await router.push(`/workspaces/${workspace.id}/`);
+        // Verificar si estamos dentro de una colección o sus derivados
+        if (pathname.includes("/collection/")) {
+          // Usamos push en lugar de replace para forzar una nueva entrada en el historial
+          await router.push(`/workspaces/${workspace.id}/`);
+        }
       } catch (error) {
         console.error("Error changing workspace:", error);
         toast.error("Error changing workspace");
       }
     },
-    [updateActiveWorkspace, router]
+    [updateActiveWorkspace, router, pathname]
   );
 
   const handleCreateWorkspace = useCallback(

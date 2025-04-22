@@ -121,45 +121,48 @@ export default function PomodoroTimer() {
       </div>
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent>
+        <DialogContent className="bg-[#0A0A0F] border-zinc-800/30 backdrop-blur-sm text-white sm:max-w-md">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 rounded-md -z-10"></div>
           <DialogHeader>
-            <DialogTitle>Configuración del Pomodoro</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              Configuración del Pomodoro
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
               Ajusta los tiempos de trabajo y descanso
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label className="col-span-2">Tiempo de trabajo (min)</label>
+          <div className="grid gap-6 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Tiempo de trabajo</label>
               <Select
                 value={workTime.toString()}
                 onValueChange={(value) => setWorkTime(Number(value))}
               >
-                <SelectTrigger className="col-span-2">
+                <SelectTrigger className="w-full bg-white/5 border-zinc-800/50 text-zinc-300">
                   <SelectValue placeholder="Selecciona tiempo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#0A0A0F] border-zinc-800/50">
                   {[1, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((time) => (
-                    <SelectItem key={time} value={time.toString()}>
-                      {time} min
+                    <SelectItem key={time} value={time.toString()} className="text-zinc-300 hover:bg-white/5">
+                      {time} minutos
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label className="col-span-2">Tiempo de descanso (min)</label>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Tiempo de descanso</label>
               <Select
                 value={breakTime.toString()}
                 onValueChange={(value) => setBreakTime(Number(value))}
               >
-                <SelectTrigger className="col-span-2">
+                <SelectTrigger className="w-full bg-white/5 border-zinc-800/50 text-zinc-300">
                   <SelectValue placeholder="Selecciona tiempo" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#0A0A0F] border-zinc-800/50">
                   {[3, 5, 7, 10, 15].map((time) => (
-                    <SelectItem key={time} value={time.toString()}>
-                      {time} min
+                    <SelectItem key={time} value={time.toString()} className="text-zinc-300 hover:bg-white/5">
+                      {time} minutos
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -172,28 +175,70 @@ export default function PomodoroTimer() {
                 setShowSettings(false);
                 resetTimer();
               }}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
             >
-              Guardar
+              Guardar cambios
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showBreakDialog} onOpenChange={setShowBreakDialog}>
-        <DialogContent>
+        <DialogContent className="bg-[#0A0A0F] border-zinc-800/30 backdrop-blur-sm text-white sm:max-w-md">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 rounded-md -z-10"></div>
           <DialogHeader>
-            <DialogTitle>¡Tiempo de descanso!</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              ¡Tiempo de descanso!
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
               Has completado tu sesión de trabajo. Toma un descanso.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-6 flex justify-center">
-            <div className="text-4xl font-bold font-mono text-green-500">
-              {formatTime(timeLeft)}
+          <div className="py-10 flex flex-col items-center justify-center">
+            <div className="mb-4 relative">
+              <div className="w-36 h-36 rounded-full bg-white/5 border border-zinc-800/50 flex items-center justify-center relative">
+                {/* Círculo de fondo */}
+                <div className="absolute inset-0 rounded-full border-4 border-zinc-800/30"></div>
+                
+                {/* Círculo de progreso */}
+                <svg className="absolute inset-0 w-full h-full -rotate-90">
+                  <circle
+                    cx="72"
+                    cy="72"
+                    r="68"
+                    fill="none"
+                    strokeWidth="4"
+                    stroke="url(#gradient)"
+                    strokeDasharray={`${2 * Math.PI * 68}`}
+                    strokeDashoffset={`${2 * Math.PI * 68 * (1 - timeLeft / (breakTime * 60))}`}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000"
+                  />
+                  <defs>
+                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#4ade80" />
+                      <stop offset="100%" stopColor="#10b981" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                
+                {/* Texto del temporizador */}
+                <div className="text-4xl font-bold font-mono bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent z-10">
+                  {formatTime(timeLeft)}
+                </div>
+              </div>
             </div>
+            <p className="text-zinc-400 text-sm">
+              Relájate y vuelve con energía renovada
+            </p>
           </div>
-          <DialogFooter>
-            <Button onClick={continueStudying}>Continuar estudiando</Button>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              onClick={continueStudying}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full"
+            >
+              Continuar estudiando
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

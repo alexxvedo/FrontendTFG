@@ -10,8 +10,8 @@ import { useCollectionStore } from "@/store/collections-store/collection-store";
 import { toast } from "sonner";
 import { CollectionsList } from "@/components/collections/collections-list";
 import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
+import { motion } from "framer-motion";
 import Background from "@/components/background/background";
-import { Separator } from "@/components/ui/separator";
 
 // Componente envoltorio que tiene acceso al contexto del socket
 function CollectionsListWithSocket({
@@ -26,7 +26,12 @@ function CollectionsListWithSocket({
   return (
     <div className="relative min-h-screen">
       <Background />
-      <div className="relative flex-1 space-y-4 p-4 md:p-8 pt-6 min-h-screen">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative flex-1 max-w-[1600px] mx-auto p-5 md:p-8 pt-6 min-h-screen"
+      >
         <CollectionsList
           collections={collections}
           onCollectionCreate={onCollectionCreate}
@@ -35,7 +40,7 @@ function CollectionsListWithSocket({
           activeUsers={usersInCollection}
           handleCollectionClick={handleCollectionClick}
         />
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -151,9 +156,25 @@ export default function CollectionsPage() {
 
   if (!workspaceId) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="text-lg text-muted-foreground dark:text-gray-400">
-          No workspace selected
+      <div className="flex h-full w-full items-center justify-center min-h-screen bg-background dark:bg-[#0A0A0F]">
+        <div className="text-lg text-muted-foreground flex flex-col items-center gap-3">
+          <div className="p-4 rounded-full bg-gray-100/80 dark:bg-gray-800/30">
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              className="h-10 w-10 text-gray-400 dark:text-gray-500" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1.5} 
+                d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" 
+              />
+            </svg>
+          </div>
+          <span>No workspace selected</span>
         </div>
       </div>
     );
@@ -161,22 +182,28 @@ export default function CollectionsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 dark:border-pink-500"></div>
+      <div className="flex h-full w-full items-center justify-center min-h-screen bg-background dark:bg-[#0A0A0F]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-t-purple-500 border-r-transparent border-b-pink-500 border-l-transparent"></div>
+          <p className="text-muted-foreground">Cargando colecciones...</p>
+        </div>
       </div>
     );
   }
 
   if (!userSession) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 dark:border-pink-500"></div>
+      <div className="flex h-full w-full items-center justify-center min-h-screen bg-background dark:bg-[#0A0A0F]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-t-purple-500 border-r-transparent border-b-pink-500 border-l-transparent"></div>
+          <p className="text-muted-foreground">Verificando sesión...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full">
+    <div className="h-full min-h-screen bg-background dark:bg-[#0A0A0F]">
       <CollectionsListWithSocket
         collections={collections}
         onCollectionCreate={handleCreateCollection}

@@ -1,14 +1,15 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Users, Calendar, Info } from "lucide-react";
 import { AvatarGroup } from "@/components/ui/avatar-group";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import CreateCollectionDialog from "@/components/collections/CreateCollectionDialog";
 import EditCollectionDialog from "@/components/collections/EditCollectionDialog";
 import DeleteCollectionDialog from "@/components/collections/DeleteCollectionDialog";
-
+import { motion } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 export function CollectionsList({
   collections,
@@ -25,37 +26,55 @@ export function CollectionsList({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between min-h-full">
-        <h2 className="text-3xl font-bold  bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">
-          Colecciones
-        </h2>
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500 text-white hover:opacity-90 transition-all"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva Colección
-        </Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold">Colecciones</h2>
+        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500 text-white hover:opacity-90 transition-all shadow-md"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Colección
+          </Button>
+        </motion.div>
       </div>
-      <Separator />
+      <Separator className="bg-gray-200/50 dark:bg-gray-700/50" />
 
       {collections && collections.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {collections.map((collection) => {
-            return (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {collections.map((collection) => (
+            <motion.div
+              key={collection.id}
+              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
               <Card
-                key={collection.id}
-                className="relative overflow-hidden border-gray-200/10 dark:border-gray-700/20 bg-background/50 dark:bg-gray-800/20 backdrop-blur-sm cursor-pointer hover:bg-purple-500/5 dark:hover:bg-purple-500/10 transition-colors"
+                className="relative overflow-hidden border border-gray-200/30 dark:border-gray-700/30 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm cursor-pointer hover:shadow-lg transition-all duration-300 group h-full"
                 onClick={() => handleCollectionClick(collection.id)}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/3 via-pink-500/3 to-gray-500/2 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/3 rounded-xl pointer-events-none" />
+                {/* Top gradient accent bar */}
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+
+                {/* Background glow effect on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 via-pink-500/0 to-blue-500/0 group-hover:from-purple-500/5 group-hover:via-pink-500/5 group-hover:to-blue-500/5 dark:group-hover:from-purple-500/10 dark:group-hover:via-pink-500/10 dark:group-hover:to-blue-500/10 rounded-xl transition-all duration-300" />
+
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-                  <CardTitle className="text-2xl font-semibold bg-clip-text">
-                    {collection.name}
-                  </CardTitle>
+                  <div className="space-y-1">
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-500/10 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 px-2 py-0 text-xs"
+                    >
+                      Colección
+                    </Badge>
+                    <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
+                      {collection.name}
+                    </CardTitle>
+                  </div>
                   <div
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-1"
                     onClick={handleActionClick}
                   >
                     <EditCollectionDialog
@@ -77,56 +96,90 @@ export function CollectionsList({
                 </CardHeader>
                 <CardContent className="relative">
                   <div className="flex flex-col space-y-4">
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 min-h-[40px]">
                       {collection.description || "Sin descripción"}
                     </p>
+
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <Calendar className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      <span>
+                        {new Date(collection.createdAt).toLocaleDateString(
+                          "es-ES",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          }
+                        )}
+                      </span>
+                    </div>
+
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground dark:text-gray-400">
-                        Activos:
+                      <Users className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Usuarios activos:
                       </span>
 
-                      {activeUsers && activeUsers[collection.id] ? (
-                        activeUsers[collection.id].map((user) => (
-                          <AvatarGroup key={user.email}>
-                            <Avatar
-                              key={user.email}
-                              className="border-2 border-background dark:border-gray-800 w-8 h-8 ring-1 ring-purple-500/20 dark:ring-pink-500/20"
-                              title={`${user.name} (${user.email})`}
-                            >
-                              <AvatarImage src={user.image} alt={user.name} />
-                              <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                                {user.name?.charAt(0)?.toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
+                      {activeUsers &&
+                      activeUsers[collection.id] &&
+                      activeUsers[collection.id].length > 0 ? (
+                        <div className="flex items-center">
+                          <AvatarGroup>
+                            {activeUsers[collection.id].map((user) => (
+                              <Avatar
+                                key={user.email}
+                                className="border-2 border-white dark:border-gray-800 w-7 h-7 ring-1 ring-purple-500/20 dark:ring-pink-500/20"
+                                title={`${user.name} (${user.email})`}
+                              >
+                                <AvatarImage src={user.image} alt={user.name} />
+                                <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs">
+                                  {user.name?.charAt(0)?.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))}
                           </AvatarGroup>
-                        ))
+                          {activeUsers[collection.id].length > 3 && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                              +{activeUsers[collection.id].length - 3} más
+                            </span>
+                          )}
+                        </div>
                       ) : (
-                        <span className="text-sm text-muted-foreground dark:text-gray-400">
+                        <span className="text-xs italic text-gray-500 dark:text-gray-400 ml-1">
                           No hay usuarios activos
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-gray-400">
-                      <span>Creada:</span>
-                      <span>
-                        {new Date(collection.createdAt).toLocaleString()}
-                      </span>
-                    </div>
                   </div>
                 </CardContent>
+
+                {/* Bottom accent with subtle gradient */}
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-purple-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </Card>
-            );
-          })}
+            </motion.div>
+          ))}
         </div>
       )}
       {!collections ||
         (collections.length === 0 && (
-          <div className="flex min-h-full w-full items-center justify-center">
-            <div className="text-lg text-muted-foreground dark:text-gray-400 self-center text-center">
-              <span className="font-bold text-gradient">
-                No collections found
-              </span>
-              <p className="text-gray-400">Try creating a new collection!</p>
+          <div className="flex min-h-[300px] w-full items-center justify-center bg-gray-50/50 dark:bg-gray-800/20 rounded-lg border border-gray-200/50 dark:border-gray-700/50 backdrop-blur-sm">
+            <div className="text-center p-8">
+              <div className="mx-auto w-16 h-16 mb-4 rounded-full bg-gray-100 dark:bg-gray-800/50 flex items-center justify-center">
+                <Info className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">
+                No hay colecciones
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4 max-w-md">
+                Crea una nueva colección para empezar a organizar tu contenido.
+              </p>
+              <Button
+                onClick={() => setShowCreateDialog(true)}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-500 dark:to-pink-500 text-white hover:opacity-90 transition-all"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva Colección
+              </Button>
             </div>
           </div>
         ))}

@@ -1,26 +1,51 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-
+import { motion } from "framer-motion";
+import { Shield, UserPlus } from "lucide-react";
 import { WorkspaceUsersList } from "@/components/workspace/workspace-users-list";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export default function Members({ activeWorkspace }) {
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // Animaciones para los elementos
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15,
+      },
+    },
+  };
+
   return (
-    <Card className="relative overflow-hidden border-gray-200/10 dark:border-gray-700/20 bg-background/50 dark:bg-gray-800/20 backdrop-blur-sm">
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/3 via-pink-500/3 to-gray-500/2 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-gray-500/3 rounded-xl pointer-events-none" />
-      <CardHeader className="relative">
-        <CardTitle className="bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent">Usuarios del Workspace</CardTitle>
-        <CardDescription className="text-muted-foreground dark:text-gray-400">
-          Gestiona los miembros y sus permisos en el workspace.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="relative">
-        <WorkspaceUsersList workspaceId={activeWorkspace?.id} />
-      </CardContent>
-    </Card>
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-6"
+    >
+      <motion.div
+        variants={itemVariants}
+        className="relative overflow-hidden rounded-xl"
+      >
+        <div className="relative pb-4 space-y-6">
+          <WorkspaceUsersList workspaceId={activeWorkspace?.id} />
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

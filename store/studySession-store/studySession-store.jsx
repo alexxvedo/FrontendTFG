@@ -11,6 +11,6 @@ export const useStudySessionStore = create(
   })),
   {
     name: "studySession-store",
-    storage: createJSONStorage(() => studySessionStorage),
+    storage: createJSONStorage(() => localStorage),
   }
 );

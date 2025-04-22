@@ -4,8 +4,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { signIn } from "next-auth/react";
+import { useTheme } from "next-themes";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function LoginPage() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -28,14 +32,32 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0A0A0F] text-white overflow-hidden">
+    <main
+      className={`min-h-screen ${
+        isDark ? "bg-[#0A0A0F] text-white" : "bg-[#F8F9FC] text-gray-800"
+      } overflow-hidden`}
+    >
       {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 animate-gradient" />
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${
+          isDark
+            ? "from-blue-900/20 via-purple-900/20 to-pink-900/20"
+            : "from-blue-100/40 via-purple-100/40 to-pink-100/40"
+        } animate-gradient`}
+      />
 
       {/* Floating orbs background effect */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-600/30 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl animate-float-delayed" />
+        <div
+          className={`absolute -top-40 -right-40 w-96 h-96 ${
+            isDark ? "bg-blue-600/30" : "bg-blue-300/30"
+          } rounded-full blur-3xl animate-float`}
+        />
+        <div
+          className={`absolute top-1/2 -left-40 w-96 h-96 ${
+            isDark ? "bg-purple-600/20" : "bg-purple-300/20"
+          } rounded-full blur-3xl animate-float-delayed`}
+        />
       </div>
 
       {/* Main content */}
@@ -45,15 +67,30 @@ export default function LoginPage() {
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center space-x-2">
               <div className="relative">
-                <div className="absolute inset-0 bg-blue-500/50 blur-sm rounded-full" />
-                <span className="relative text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                <div
+                  className={`absolute inset-0 ${
+                    isDark ? "bg-blue-500/50" : "bg-blue-400/50"
+                  } blur-sm rounded-full`}
+                />
+                <span
+                  className={`relative text-2xl font-bold bg-gradient-to-r ${
+                    isDark
+                      ? "from-blue-400 to-purple-400"
+                      : "from-blue-600 to-purple-600"
+                  } bg-clip-text text-transparent`}
+                >
                   FlashMind AI
                 </span>
               </div>
             </Link>
             <div className="flex items-center space-x-6">
+              <ThemeToggle />
               <Link href="/register">
-                <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 transition-all">
+                <Button
+                  className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
+                    !isDark && "text-white"
+                  } hover:opacity-90 transition-all`}
+                >
                   Crear Cuenta
                 </Button>
               </Link>
@@ -66,22 +103,44 @@ export default function LoginPage() {
           <div className="max-w-md mx-auto">
             <motion.div
               {...fadeIn}
-              className="relative bg-[#0F0F16]/90 p-8 rounded-2xl overflow-hidden"
+              className={`relative ${
+                isDark ? "bg-[#0F0F16]/90" : "bg-white shadow-lg"
+              } p-8 rounded-2xl overflow-hidden`}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5" />
+              <div
+                className={`absolute inset-0 bg-gradient-to-r ${
+                  isDark
+                    ? "from-blue-500/5 to-purple-500/5"
+                    : "from-blue-100/10 to-purple-100/10"
+                }`}
+              />
               <div className="relative">
-                <h2 className="text-3xl font-bold mb-6 bg-gradient-to-r from-white via-blue-200 to-purple-200 bg-clip-text text-transparent">
+                <h2
+                  className={`text-3xl font-bold mb-6 bg-gradient-to-r ${
+                    isDark
+                      ? "from-white via-blue-200 to-purple-200"
+                      : "from-blue-600 to-purple-600"
+                  } bg-clip-text text-transparent`}
+                >
                   Iniciar Sesión
                 </h2>
 
                 {error && (
-                  <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-sm text-red-200">
+                  <div
+                    className={`mb-4 p-3 ${
+                      isDark
+                        ? "bg-red-500/20 border border-red-500/50 text-red-200"
+                        : "bg-red-100 border border-red-300 text-red-600"
+                    } rounded-lg text-sm`}
+                  >
                     {error}
                   </div>
                 )}
 
                 <div className="text-center mb-8">
-                  <p className="text-gray-400">
+                  <p
+                    className={`${isDark ? "text-gray-400" : "text-gray-600"}`}
+                  >
                     Inicia sesión con tu cuenta de redes sociales para continuar
                   </p>
                 </div>
@@ -89,7 +148,11 @@ export default function LoginPage() {
                 <div className="space-y-4">
                   <Button
                     variant="outline"
-                    className="w-full border-gray-700 hover:bg-white/5 transition-all py-6"
+                    className={`w-full ${
+                      isDark
+                        ? "border-gray-700 hover:bg-white/5"
+                        : "border-gray-300 hover:bg-gray-100 text-gray-700"
+                    } transition-all py-6`}
                     onClick={() => handleSocialLogin("google")}
                     disabled={isLoading}
                   >
@@ -104,7 +167,11 @@ export default function LoginPage() {
 
                   <Button
                     variant="outline"
-                    className="w-full border-gray-700 hover:bg-white/5 transition-all py-6"
+                    className={`w-full ${
+                      isDark
+                        ? "border-gray-700 hover:bg-white/5"
+                        : "border-gray-300 hover:bg-gray-100 text-gray-700"
+                    } transition-all py-6`}
                     onClick={() => handleSocialLogin("github")}
                     disabled={isLoading}
                   >
@@ -119,11 +186,19 @@ export default function LoginPage() {
                 </div>
 
                 <div className="mt-6 text-center">
-                  <p className="text-gray-400 text-sm">
+                  <p
+                    className={`${
+                      isDark ? "text-gray-400" : "text-gray-600"
+                    } text-sm`}
+                  >
                     ¿No tienes una cuenta?{" "}
                     <Link
                       href="/register"
-                      className="text-blue-400 hover:text-blue-300"
+                      className={`${
+                        isDark
+                          ? "text-blue-400 hover:text-blue-300"
+                          : "text-blue-600 hover:text-blue-500"
+                      }`}
                     >
                       Regístrate
                     </Link>

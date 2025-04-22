@@ -716,7 +716,7 @@ const MenuBar = ({ editor }) => {
                                   }}
                                 />
                               ))
-                            ).flat()}
+                            )).flat()}
                           </div>
                           <div className="table-grid-dimensions">
                             {hoveredCell.row > 0 || hoveredCell.col > 0

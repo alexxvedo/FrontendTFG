@@ -23,9 +23,11 @@ import {
   Target,
   Zap,
   Flame,
+  Book,
+  Folder,
+  StickyNote,
 } from "lucide-react";
-import { useParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 import { useStudySessionStore } from "@/store/studySession-store/studySession-store";
 import { useSocket } from "@/context/socket";
@@ -52,6 +54,10 @@ import Background from "@/components/background/background";
 import { Separator } from "@/components/ui/separator";
 
 import PetAgent from "@/components/agent/PetAgent";
+import CollectionStats from "@/components/collection/CollectionStats";
+import CollectionResources from "@/components/collection/CollectionResources";
+import CollectionNotes from "@/components/collection/CollectionNotes";
+import FlashcardTabs from "@/components/collection/FlashcardTabs";
 
 export default function CollectionPage() {
   const { workspaceId, collectionId } = useParams();
@@ -70,17 +76,17 @@ export default function CollectionPage() {
 
   const [collection, setCollection] = useState(null);
   const [workspace, setWorkspace] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
-  const [activeUsers, setActiveUsers] = useState([]);
   const [flashcardsDataBD, setFlashcardsDataBD] = useState(null);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [activeTab, setActiveTab] = useState("stats");
+  const [activeTab, setActiveTab] = useState("flashcards");
   const [openEditor, setOpenEditor] = useState(false);
   const [isSpacedStudyOpen, setIsSpacedStudyOpen] = useState(false);
   const [isStudyModalOpen, setIsStudyModalOpen] = useState(false);
   const [isStudyDialogOpen, setIsStudyDialogOpen] = useState(false);
   const [studyMode, setStudyMode] = useState(null);
+  const [activeUsers, setActiveUsers] = useState([]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -312,10 +318,10 @@ export default function CollectionPage() {
     <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
       <Background />
 
-      <div className="sticky top-0 z-50 backdrop-blur-xl border-b border-blue-900/20">
+      <div className="sticky top-0 z-50 backdrop-blur-xl border-b border-blue-900/20 bg-white/5 dark:bg-black/10">
         <div className="container min-w-full mx-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-5">
               <Link
                 href={`/workspaces/${workspaceId}/collections`}
                 className="flex items-center gap-2 text-zinc-600 hover:text-blue-400 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors"
@@ -324,17 +330,23 @@ export default function CollectionPage() {
                 <span className="font-medium">Volver</span>
               </Link>
               <div className="flex flex-col">
-                <h2 className="text-3xl font-bold ">{collection.name}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 text-yellow-500" />
+                <h2 className="text-3xl font-bold bg-clip-text ">
+                  {collection.name}
+                </h2>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500/10">
+                      <Star className="h-3 w-3 text-yellow-500" />
+                    </div>
                     <span className="text-sm font-medium text-yellow-500">
                       Nivel {Math.floor(collection.flashcards?.length / 5) + 1}
                     </span>
                   </div>
-                  <div className="h-4 w-px bg-zinc-700/50" />
-                  <div className="flex items-center gap-1">
-                    <Flame className="h-4 w-4 text-orange-500" />
+                  <div className="h-3 w-px bg-zinc-700/50" />
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-orange-500/10">
+                      <Flame className="h-3 w-3 text-orange-500" />
+                    </div>
                     <span className="text-sm font-medium text-orange-500">
                       {collection.flashcards?.length || 0} Flashcards
                     </span>
@@ -343,8 +355,8 @@ export default function CollectionPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-5">
+              <div className="flex items-center justify-between gap-4">
                 {/* Botón Añadir Flashcard */}
                 <button
                   onClick={() => setOpenEditor(true)}
@@ -352,7 +364,7 @@ export default function CollectionPage() {
                 >
                   <Plus className="h-4 w-4" />
                   <span className="font-medium">Nueva Flashcard</span>
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
 
                 <div className="h-6 w-px bg-zinc-700/50" />
@@ -363,7 +375,7 @@ export default function CollectionPage() {
                     setStudyMode("FREE");
                     setIsStudyDialogOpen(true);
                   }}
-                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500/80 to-purple-500/80 px-4 text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition duration-300 hover:shadow-blue-500/30"
+                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition duration-300 hover:shadow-blue-500/30"
                 >
                   <div className="flex items-center gap-2">
                     <Play className="h-4 w-4" />
@@ -378,27 +390,28 @@ export default function CollectionPage() {
                     setStudyMode("SPACED");
                     setIsStudyDialogOpen(true);
                   }}
-                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500/80 to-pink-500/80 px-4 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition duration-300 hover:shadow-purple-500/30"
+                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition duration-300 hover:shadow-purple-500/30"
                 >
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4" />
                     <span className="font-medium">Repaso Espaciado</span>
                   </div>
+                  <div className="absolute -inset-px rounded-xl bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity" />
                 </button>
               </div>
             </div>
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-4">
+          <div className="mt-2 mb-4 bg-zinc-900/20 backdrop-blur-sm rounded-xl p-3 border border-zinc-800/30">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-zinc-400">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-zinc-300">
                   Progreso de la Colección
                 </span>
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-                  <Target className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs font-medium text-blue-500">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+                  <Target className="h-3 w-3 text-blue-400" />
+                  <span className="text-xs font-medium text-blue-400">
                     {Math.min(
                       100,
                       Math.floor(
@@ -413,7 +426,7 @@ export default function CollectionPage() {
                 {collection.flashcards?.length || 0}/20 Tarjetas
               </span>
             </div>
-            <div className="h-2 w-full bg-zinc-800/50 rounded-full overflow-hidden">
+            <div className="h-2.5 w-full bg-zinc-800/50 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 relative"
                 style={{
@@ -432,12 +445,67 @@ export default function CollectionPage() {
         </div>
       </div>
 
-      <Separator className="bg-blue-900/20" />
+      <Separator className="bg-blue-900/20 opacity-50" />
 
-      <div className="container relative min-w-full mx-auto px-6 pt-4">
-        {/*<GameStats collection={collection} />*/}
-        <div className="flex justify-center">
-          <CollectionTabs collection={collection} isLoading={isLoading} />
+      <div className="container relative min-w-full mx-auto px-6 pt-6">
+        <div className="border-b border-border dark:border-gray-800 mb-6">
+          <div className="flex space-x-6">
+            <button
+              onClick={() => setActiveTab("flashcards")}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === "flashcards"
+                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
+                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
+              }`}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Flashcards
+            </button>
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === "stats"
+                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
+                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
+              }`}
+            >
+              <Book className="h-4 w-4 mr-2" />
+              Estadísticas
+            </button>
+            <button
+              onClick={() => setActiveTab("resources")}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === "resources"
+                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
+                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
+              }`}
+            >
+              <Folder className="h-4 w-4 mr-2" />
+              Recursos
+            </button>
+            <button
+              onClick={() => setActiveTab("notes")}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === "notes"
+                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
+                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
+              }`}
+            >
+              <StickyNote className="h-4 w-4 mr-2" />
+              Notas
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          {activeTab === "flashcards" && (
+            <FlashcardTabs collection={collection} isLoading={isLoading} />
+          )}
+          {activeTab === "stats" && <CollectionStats collection={collection} />}
+          {activeTab === "resources" && (
+            <CollectionResources collection={collection} />
+          )}
+          {activeTab === "notes" && <CollectionNotes />}
         </div>
       </div>
       <FlashcardEditor

@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { setupConsoleSuppression } from "@/lib/suppressConsoleMessages";
+import { ThemeProvider } from "./context/ThemeContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,14 +29,16 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} h-full antialiased`}>
         <Providers>
-          <div className="relative flex h-full">
-            <div className="flex-1 flex flex-col min-h-screen ">
-              <main className="flex-1 relative">
-                <div className="no-flicker">{children}</div>
-              </main>
+          <ThemeProvider>
+            <div className="relative flex h-full">
+              <div className="flex-1 flex flex-col min-h-screen ">
+                <main className="flex-1 relative">
+                  <div className="no-flicker">{children}</div>
+                </main>
+              </div>
             </div>
-          </div>
-          <Toaster richColors />
+            <Toaster richColors />
+          </ThemeProvider>
         </Providers>
       </body>
     </html>
