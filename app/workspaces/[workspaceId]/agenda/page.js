@@ -447,6 +447,8 @@ export default function DraggableBoard() {
   const [editingTask, setEditingTask] = useState(null);
   const [workspaceUsers, setWorkspaceUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null); // Estado para almacenar el rol del usuario
+  const [canEdit, setCanEdit] = useState(false); // Estado para indicar si el usuario puede editar
   const api = useApi();
   const { data: session } = useSession();
   const params = useParams();
@@ -468,17 +470,34 @@ export default function DraggableBoard() {
     }
   }, [workspaceId]);
 
-  // Cargar los usuarios del workspace
+  // Cargar los usuarios del workspace y verificar permisos del usuario actual
   const loadWorkspaceUsers = async () => {
     setIsLoading(true);
     try {
-      const response = await api.workspaces.getUsers(workspaceId);
-      if (response.data) {
-        setWorkspaceUsers(response.data);
+      // Cargar los usuarios del workspace
+      const usersResponse = await api.workspaces.getUsers(workspaceId);
+      console.log("Usuarios: ", usersResponse);
+      console.log("Usuario actual: ", session.user);
+      console.log("POLLAAAAAAS");
+
+      if (usersResponse.data) {
+        setWorkspaceUsers(usersResponse.data);
+        // Comprobar los permisos del usuario actual
+        const user = usersResponse.data.filter(
+          (user) => user.email === session.user?.email
+        )[0];
+        console.log("Usuario filtrado: ", user);
+        console.log("Permisos del usuario actual: ", user.permissionType);
+
+        setUserRole(user.permissionType);
+
+        if (user.permissionType == "EDITOR" || user.permissionType == "OWNER") {
+          setCanEdit(true);
+        }
       }
     } catch (error) {
-      console.error("Error al cargar los usuarios del workspace:", error);
-      toast.error("No se pudieron cargar los usuarios del workspace");
+      console.error("Error al cargar los datos del workspace:", error);
+      toast.error("No se pudieron cargar los datos del workspace");
     } finally {
       setIsLoading(false);
     }
@@ -667,7 +686,7 @@ export default function DraggableBoard() {
         };
 
         if (taskToMove) {
-          await api.tasks.update(taskToMove.id, {
+          await api.tasks.update(taskToMove.id, workspaceId, {
             title: taskToMove.title,
             description: taskToMove.description,
             priority: taskToMove.priority?.toUpperCase() || "MEDIUM",
@@ -717,7 +736,7 @@ export default function DraggableBoard() {
       };
 
       // Llamar a la API para actualizar la tarea
-      await api.tasks.update(editedTask.id, taskData);
+      await api.tasks.update(editedTask.id, workspaceId, taskData);
 
       // Actualizar el estado local
       setColumns((prev) => {
@@ -740,6 +759,22 @@ export default function DraggableBoard() {
     } catch (error) {
       console.error("Error al actualizar la tarea:", error);
       toast.error("No se pudo actualizar la tarea");
+    }
+  };
+
+  const handleDeleteTask = async (task) => {
+    try {
+      await api.tasks.delete(workspaceId, task.id);
+      setColumns((prev) => {
+        const newColumns = { ...prev };
+        newColumns[task.status] = newColumns[task.status].filter(
+          (t) => t.id !== task.id
+        );
+        return newColumns;
+      });
+    } catch (error) {
+      console.error("Error al eliminar la tarea:", error);
+      toast.error("No se pudo eliminar la tarea");
     }
   };
 
@@ -905,13 +940,15 @@ export default function DraggableBoard() {
                         <div className="space-y-2">
                           {columns[columnId].map((task) => (
                             <TaskItem
-                              key={task.id}
+                              key={`${columnId}-${task.id}`}
                               task={task}
                               columnId={columnId}
                               onEditTask={handleEditTask}
+                              onDeleteTask={handleDeleteTask}
                               findUserByEmail={findUserByEmail}
                               getUserInitial={getUserInitial}
                               getUserDisplayName={getUserDisplayName}
+                              canEdit={canEdit} // Pasar el estado de permisos al componente TaskItem
                             />
                           ))}
                           {columns[columnId].length === 0 && (
@@ -1022,9 +1059,11 @@ function TaskItem({
   task,
   columnId,
   onEditTask,
+  onDeleteTask,
   findUserByEmail,
   getUserInitial,
   getUserDisplayName,
+  canEdit, // Nuevo prop para controlar si el usuario puede editar
 }) {
   const {
     attributes,
@@ -1035,6 +1074,7 @@ function TaskItem({
     isDragging,
   } = useSortable({
     id: `${columnId}-${task.id}`,
+    disabled: !canEdit, // Deshabilitar el drag & drop si el usuario no puede editar
   });
 
   const [imageError, setImageError] = useState(false);
@@ -1057,6 +1097,11 @@ function TaskItem({
     }
   };
 
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    onDeleteTask(task);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -1076,14 +1121,27 @@ function TaskItem({
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <div
-              className="cursor-grab active:cursor-grabbing"
-              {...listeners}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground" />
-            </div>
+            {canEdit && (
+              <div
+                className="cursor-grab active:cursor-grabbing"
+                {...listeners}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground" />
+              </div>
+            )}
             <h3 className="font-medium text-sm truncate">{task.title}</h3>
+
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 ml-auto opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
 
           {task.description && (

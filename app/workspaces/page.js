@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
-import { useApi } from "@/lib/api";
+import { useApi, setAuthToken } from "@/lib/api";
 import { useUserStore } from "@/store/user-store/user-store";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useTheme } from "next-themes";
 
 export default function WorkspacesPage() {
   const router = useRouter();
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const setWorkspaces = useSidebarStore((state) => state.setWorkspaces);
   const updateActiveWorkspace = useSidebarStore(
@@ -27,18 +27,37 @@ export default function WorkspacesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
 
+  // Configurar el token de autenticación cuando la sesión cambie
+  useEffect(() => {
+    if (session?.user?.email) {
+      // Usar el email como token (simulado)
+      setAuthToken(session.user.email);
+    }
+  }, [session]);
+
   useEffect(() => {
     const fetchWorkspaces = async () => {
+      if (status === "loading" || !isLoaded) {
+        return;
+      }
+
+      if (status === "unauthenticated") {
+        router.push("/login");
+        return;
+      }
+
       setIsLoading(true);
       setLoadingProgress(10);
 
       try {
-        if (!isLoaded || !session?.user) {
+        if (!session?.user) {
+          setError("No se ha podido identificar al usuario. Por favor, inicia sesión de nuevo.");
           setIsLoading(false);
           return;
         }
@@ -52,6 +71,12 @@ export default function WorkspacesPage() {
             user?.email
           );
           setLoadingProgress(70);
+
+          if (!workspaces || workspaces.length === 0) {
+            setError("No tienes espacios de trabajo. Crea uno nuevo para comenzar.");
+            setIsLoading(false);
+            return;
+          }
 
           setWorkspaces(workspaces);
 
@@ -69,7 +94,21 @@ export default function WorkspacesPage() {
             "Error al obtener espacios de trabajo:",
             workspaceError
           );
-          setError("No se pudieron cargar los espacios de trabajo. Por favor, inténtalo de nuevo.");
+          
+          // Mensaje de error más específico según el código de estado
+          if (workspaceError.response) {
+            if (workspaceError.response.status === 403) {
+              setError("No tienes permisos para acceder a los espacios de trabajo. Verifica tu cuenta.");
+            } else if (workspaceError.response.status === 401) {
+              setError("Tu sesión ha expirado. Por favor, inicia sesión de nuevo.");
+              setTimeout(() => router.push("/login"), 2000);
+            } else {
+              setError("No se pudieron cargar los espacios de trabajo. Por favor, inténtalo de nuevo.");
+            }
+          } else {
+            setError("Error de conexión. Verifica tu conexión a internet e inténtalo de nuevo.");
+          }
+          
           setIsLoading(false);
         }
       } catch (error) {
@@ -81,7 +120,13 @@ export default function WorkspacesPage() {
     };
 
     fetchWorkspaces();
-  }, [isLoaded, session]);
+  }, [isLoaded, session, status, retryCount, router, setWorkspaces, updateActiveWorkspace]);
+
+  // Función para reintentar la carga
+  const handleRetry = () => {
+    setError(null);
+    setRetryCount(prev => prev + 1);
+  };
 
   // Animaciones para los elementos
   const containerVariants = {
@@ -110,12 +155,13 @@ export default function WorkspacesPage() {
     return (
       <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
         {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
 
         {/* Floating orbs background effect */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
-          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-900/10 rounded-full blur-3xl animate-float" />
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-900/10 rounded-full blur-3xl animate-float-delayed" />
+          <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-pink-900/10 rounded-full blur-3xl animate-float-slow" />
         </div>
 
         <motion.div 
@@ -128,23 +174,22 @@ export default function WorkspacesPage() {
             className="relative"
             variants={itemVariants}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur-xl opacity-20 animate-pulse"></div>
-            <Loader2 className="h-16 w-16 text-purple-500 dark:text-purple-400 animate-spin" />
+            <Loader2 className="h-16 w-16 text-blue-400 animate-spin" />
           </motion.div>
           
           <motion.h2 
-            className="mt-8 text-2xl font-bold bg-gradient-to-r from-gray-800 via-purple-700 to-pink-700 dark:from-white dark:via-purple-200 dark:to-pink-200 bg-clip-text text-transparent"
+            className="mt-6 text-2xl font-bold text-white"
             variants={itemVariants}
           >
             Cargando Workspaces
           </motion.h2>
           
           <motion.div 
-            className="mt-4 w-64 h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden"
+            className="mt-4 w-64 h-2 bg-gray-800 rounded-full overflow-hidden"
             variants={itemVariants}
           >
             <motion.div 
-              className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+              className="h-full bg-gradient-to-r from-blue-600 to-purple-600"
               initial={{ width: 0 }}
               animate={{ width: `${loadingProgress}%` }}
               transition={{ duration: 0.5 }}
@@ -152,7 +197,7 @@ export default function WorkspacesPage() {
           </motion.div>
           
           <motion.p 
-            className="mt-4 text-gray-500 dark:text-gray-400 text-center max-w-md"
+            className="mt-4 text-gray-400 text-center max-w-md"
             variants={itemVariants}
           >
             Preparando tu espacio de trabajo colaborativo...
@@ -166,7 +211,7 @@ export default function WorkspacesPage() {
     return (
       <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
         {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
 
         <motion.div 
           className="flex flex-col items-center justify-center h-screen p-4"
@@ -175,39 +220,32 @@ export default function WorkspacesPage() {
           variants={containerVariants}
         >
           <motion.div 
-            className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6"
+            className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mb-6"
             variants={itemVariants}
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-8 w-8 text-red-500" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+            <AlertTriangle className="h-8 w-8 text-red-400" />
           </motion.div>
           
           <motion.h2 
-            className="text-2xl font-bold text-gray-800 dark:text-white mb-2 text-center"
+            className="text-2xl font-bold text-white mb-2 text-center"
             variants={itemVariants}
           >
             No se pudieron cargar los workspaces
           </motion.h2>
           
           <motion.p 
-            className="text-red-500 dark:text-red-400 text-center mb-6 max-w-md"
+            className="text-red-400 text-center mb-6 max-w-md"
             variants={itemVariants}
           >
             {error}
           </motion.p>
           
           <motion.button
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-md hover:opacity-90 transition-all"
-            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-2"
+            onClick={handleRetry}
             variants={itemVariants}
           >
+            <RefreshCw className="h-4 w-4" />
             Intentar de nuevo
           </motion.button>
         </motion.div>
@@ -219,16 +257,17 @@ export default function WorkspacesPage() {
   return (
     <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
       {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/5 via-pink-900/5 to-blue-900/3 dark:from-purple-900/15 dark:via-pink-900/10 dark:to-blue-900/5 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
 
       {/* Floating orbs background effect */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-float" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-pink-600/5 dark:bg-pink-600/10 rounded-full blur-3xl animate-float-delayed" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-900/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-900/10 rounded-full blur-3xl animate-float-delayed" />
+        <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-pink-900/10 rounded-full blur-3xl animate-float-slow" />
       </div>
 
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-16 w-16 text-purple-500 dark:text-purple-400 animate-spin" />
+        <Loader2 className="h-16 w-16 text-blue-400 animate-spin" />
       </div>
     </div>
   );

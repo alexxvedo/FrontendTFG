@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSocket } from "@/context/socket";
+import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
 import { useSession } from "next-auth/react";
 
 export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
-  const socket = useSocket();
+  const { socket, isConnected } = useWorkspaceSocket();
   const { data: session } = useSession();
   const [users, setUsers] = useState([]);
   const [cursors, setCursors] = useState(new Map());
@@ -13,7 +13,7 @@ export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
 
   // Efecto para manejar la conexión/desconexión de la nota
   useEffect(() => {
-    if (!socket?.connected || !session?.user || !noteId) {
+    if (!socket || !isConnected || !session?.user || !noteId) {
       return;
     }
 
@@ -25,7 +25,7 @@ export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
       currentNoteId.current !== noteId &&
       hasJoined.current
     ) {
-      socket.emit("leave_note", currentNoteId.current);
+      socket.emit("leave_note", workspaceId, currentNoteId.current);
       hasJoined.current = false;
       if (mounted.current) {
         setCursors(new Map());
@@ -75,6 +75,7 @@ export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
         console.log("Cursor remoto actualizado:", {
           user: userData.email,
           cursor,
+          userId,
         });
         setCursors((prev) => {
           const newCursors = new Map(prev);
@@ -103,25 +104,25 @@ export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
       socket.off("cursor_updated", handleCursorUpdated);
       socket.off("note_content_updated", handleNoteContentUpdated);
     };
-  }, [socket?.connected, workspaceId, noteId, session, onContentUpdate]);
+  }, [socket, isConnected, workspaceId, noteId, session, onContentUpdate]);
 
   // Efecto para limpiar cuando el componente se desmonta
   useEffect(() => {
     return () => {
       mounted.current = false;
-      if (hasJoined.current && currentNoteId.current) {
-        socket?.emit("leave_note", currentNoteId.current);
+      if (hasJoined.current && currentNoteId.current && socket) {
+        socket.emit("leave_note", workspaceId, currentNoteId.current);
         hasJoined.current = false;
       }
     };
-  }, [socket]);
+  }, [socket, workspaceId]);
 
   const updateCursor = useCallback(
     (cursorData) => {
-      if (!socket?.connected || !session?.user || !mounted.current) {
+      if (!socket || !isConnected || !session?.user || !mounted.current) {
         console.log("No se puede actualizar el cursor:", {
           socket: !!socket,
-          connected: socket?.connected,
+          connected: isConnected,
           noteId: !!noteId,
           session: !!session?.user,
           mounted: mounted.current,
@@ -135,17 +136,17 @@ export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
         user: session.user.email,
       });
 
-      socket.emit("cursor_update", noteId, cursorData);
+      socket.emit("cursor_update", workspaceId, noteId, cursorData);
     },
-    [socket, noteId, session]
+    [socket, isConnected, workspaceId, noteId, session]
   );
 
   const updateContent = useCallback(
     (content) => {
-      if (!socket?.connected || !session?.user || !mounted.current) return;
-      socket.emit("note_content_update", noteId, content);
+      if (!socket || !isConnected || !session?.user || !mounted.current) return;
+      socket.emit("note_content_update", workspaceId, noteId, content);
     },
-    [socket, noteId, session]
+    [socket, isConnected, workspaceId, noteId, session]
   );
 
   return {
@@ -153,6 +154,6 @@ export function useNoteUsers(workspaceId, noteId, onContentUpdate) {
     cursors,
     updateCursor,
     updateContent,
-    isReady: socket?.connected && !!session?.user,
+    isReady: isConnected && !!session?.user,
   };
 }

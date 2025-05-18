@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
+import { useSession } from "next-auth/react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ export function InviteUserDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState("");
   const [copied, setCopied] = useState(false);
+  const { data: session } = useSession();
 
   // Reset token when dialog opens
   useEffect(() => {
@@ -51,6 +53,8 @@ export function InviteUserDialog({
         body: JSON.stringify({
           workspaceId,
           permissionType,
+          inviterName: session?.user?.name || "Usuario",
+          inviterEmail: session?.user?.email,
         }),
       });
 

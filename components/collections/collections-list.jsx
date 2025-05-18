@@ -56,19 +56,78 @@ export function CollectionsList({
                 onClick={() => handleCollectionClick(collection.id)}
               >
                 {/* Top gradient accent bar */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+                <div
+                  className={`absolute top-0 left-0 right-0 h-1 ${
+                    collection.color === "gradient"
+                      ? "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"
+                      : ""
+                  }`}
+                  style={
+                    collection.color !== "gradient"
+                      ? { backgroundColor: collection.color }
+                      : {}
+                  }
+                />
 
                 {/* Background glow effect on hover */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 via-pink-500/0 to-blue-500/0 group-hover:from-purple-500/5 group-hover:via-pink-500/5 group-hover:to-blue-500/5 dark:group-hover:from-purple-500/10 dark:group-hover:via-pink-500/10 dark:group-hover:to-blue-500/10 rounded-xl transition-all duration-300" />
 
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
                   <div className="space-y-1">
-                    <Badge
-                      variant="outline"
-                      className="bg-blue-500/10 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 px-2 py-0 text-xs"
-                    >
-                      Colección
-                    </Badge>
+                    <div className="flex flex-wrap gap-1.5 max-w-[250px] overflow-hidden mb-1">
+                      {collection.tags && collection.tags.length > 0 ? (
+                        collection.tags.slice(0, 3).map((tag, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className={`${
+                              collection.color === "gradient"
+                                ? "bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                                : ""
+                            } px-2.5 py-0.5 text-xs whitespace-nowrap`}
+                            style={
+                              collection.color !== "gradient"
+                                ? {
+                                    backgroundColor: `${collection.color}20`,
+                                    borderColor: `${collection.color}40`,
+                                    color: collection.color,
+                                  }
+                                : {}
+                            }
+                          >
+                            {tag}
+                          </Badge>
+                        ))
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={`${
+                            collection.color === "gradient"
+                              ? "bg-blue-500/10 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                              : ""
+                          } px-2.5 py-0.5 text-xs`}
+                          style={
+                            collection.color !== "gradient"
+                              ? {
+                                  backgroundColor: `${collection.color}20`,
+                                  borderColor: `${collection.color}40`,
+                                  color: collection.color,
+                                }
+                              : {}
+                          }
+                        >
+                          Colección
+                        </Badge>
+                      )}
+                      {collection.tags && collection.tags.length > 3 && (
+                        <Badge
+                          variant="outline"
+                          className="bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800 px-2.5 py-0.5 text-xs"
+                        >
+                          +{collection.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
                     <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
                       {collection.name}
                     </CardTitle>

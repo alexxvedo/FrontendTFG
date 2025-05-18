@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDown, Plus, SquareTerminal } from "lucide-react";
+import { ChevronsUpDown, Plus, SquareTerminal, Trash } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -35,6 +35,7 @@ import {
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
 import { useApi } from "@/lib/api";
 import { toast } from "sonner";
+import DeleteWorkspaceDialog from "@/components/workspace/delete-workspace-dialog";
 
 import dynamic from "next/dynamic";
 
@@ -48,6 +49,7 @@ export function WorkspaceSwitcher() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { data: session } = useSession();
   const user = session?.user;
+  const [workspacePermissions, setWorkspacePermissions] = useState({});
 
   const api = useApi();
 
@@ -84,6 +86,25 @@ export function WorkspaceSwitcher() {
           JSON.stringify(safeWorkspacesList) !== JSON.stringify(workspaces)
         ) {
           setWorkspaces(safeWorkspacesList);
+
+          // Cargar los permisos para cada workspace
+          const permissions = {};
+          for (const workspace of safeWorkspacesList) {
+            try {
+              const usersResponse = await api.workspaces.getUsers(workspace.id);
+              const users = usersResponse?.data || [];
+              const currentUser = users.find(u => u.email === user.email);
+              if (currentUser) {
+                permissions[workspace.id] = currentUser.permissionType;
+              }
+            } catch (err) {
+              console.error(`Error loading permissions for workspace ${workspace.id}:`, err);
+            }
+          }
+          
+          if (mounted) {
+            setWorkspacePermissions(permissions);
+          }
 
           // Si no hay workspace activo o el workspace activo ya no existe en la lista
           if (
@@ -126,6 +147,32 @@ export function WorkspaceSwitcher() {
       }
     },
     [updateActiveWorkspace, router, pathname]
+  );
+  
+  const handleDeleteWorkspace = useCallback(
+    async (workspaceId) => {
+      try {
+        // Filtrar el workspace eliminado de la lista
+        const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
+        setWorkspaces(updatedWorkspaces);
+        
+        // Si el workspace eliminado era el activo, cambiar a otro
+        if (activeWorkspace?.id === workspaceId && updatedWorkspaces.length > 0) {
+          updateActiveWorkspace(updatedWorkspaces[0]);
+          await router.push(`/workspaces/${updatedWorkspaces[0].id}/`);
+        } else if (updatedWorkspaces.length === 0) {
+          // Si no quedan workspaces, redirigir a la página principal
+          updateActiveWorkspace(null);
+          await router.push('/');
+        }
+        
+        toast.success("Workspace eliminado correctamente");
+      } catch (error) {
+        console.error("Error deleting workspace:", error);
+        toast.error("Error al eliminar el workspace");
+      }
+    },
+    [workspaces, activeWorkspace, updateActiveWorkspace, setWorkspaces, router]
   );
 
   const handleCreateWorkspace = useCallback(
@@ -221,13 +268,32 @@ export function WorkspaceSwitcher() {
                 (workspace) => (
                   <DropdownMenuItem
                     key={workspace.id}
-                    onClick={() => handleWorkspaceChange(workspace)}
-                    className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70"
+                    className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70 flex justify-between items-center"
                   >
-                    {workspace.name}
-                    {workspace.id === activeWorkspace?.id && (
-                      <DropdownMenuShortcut>✓</DropdownMenuShortcut>
-                    )}
+                    <div 
+                      className="flex-grow cursor-pointer"
+                      onClick={() => handleWorkspaceChange(workspace)}
+                    >
+                      {workspace.name}
+                      {workspace.id === activeWorkspace?.id && (
+                        <DropdownMenuShortcut>✓</DropdownMenuShortcut>
+                      )}
+                    </div>
+                    <div 
+                      className="ml-2" 
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <DeleteWorkspaceDialog 
+                        workspace={workspace}
+                        onDelete={() => handleDeleteWorkspace(workspace.id)}
+                        userPermission={workspacePermissions[workspace.id]}
+                        trigger={
+                          <button className="p-1 rounded-full hover:bg-red-500/10 text-red-400 hover:text-red-500">
+                            <Trash className="h-3.5 w-3.5" />
+                          </button>
+                        }
+                      />
+                    </div>
                   </DropdownMenuItem>
                 )
               )}

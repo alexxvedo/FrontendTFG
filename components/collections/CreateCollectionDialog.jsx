@@ -12,15 +12,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
-import { FolderPlus, Smile } from "lucide-react";
-import { motion } from "framer-motion";
+import { FolderPlus, Smile, BookText, Tag, X, Palette } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 const Picker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
 export default function CreateCollectionDialog({ isOpen, onClose, onCreate }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [tags, setTags] = useState([]);
+  const [currentTag, setCurrentTag] = useState("");
+  const [color, setColor] = useState("gradient");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { theme } = useTheme();
 
@@ -29,46 +34,74 @@ export default function CreateCollectionDialog({ isOpen, onClose, onCreate }) {
     if (isOpen) {
       setName("");
       setDescription("");
+      setTags([]);
+      setCurrentTag("");
+      setColor("gradient");
       setShowEmojiPicker(false);
     }
   }, [isOpen]);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onCreate({ name: name.trim(), description: description.trim() });
+    onCreate({ 
+      name: name.trim(), 
+      description: description.trim(),
+      tags,
+      color
+    });
     onClose();
+  };
+
+  const handleAddTag = () => {
+    if (currentTag.trim() && !tags.includes(currentTag.trim())) {
+      setTags([...tags, currentTag.trim()]);
+      setCurrentTag("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && currentTag.trim()) {
+      e.preventDefault();
+      handleAddTag();
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-white/95 dark:bg-[#0A0A0F]/95 backdrop-blur-sm border border-gray-200/20 dark:border-gray-800/40 shadow-lg overflow-visible">
-        {/* Background elements */}
+      <DialogContent className="sm:max-w-[500px] bg-[#0A0A0F]/95 border border-purple-500/20 backdrop-blur-sm shadow-lg overflow-hidden">
+        {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-10 right-10 w-64 h-64 bg-blue-600/5 dark:bg-blue-900/20 rounded-full blur-3xl animate-float" />
-          <div className="absolute bottom-10 left-10 w-64 h-64 bg-purple-600/5 dark:bg-purple-900/20 rounded-full blur-3xl animate-float-delayed" />
+          <div className="absolute top-10 right-10 w-64 h-64 bg-purple-600/5 rounded-full blur-3xl animate-float" />
+          <div className="absolute bottom-10 left-10 w-64 h-64 bg-pink-600/5 rounded-full blur-3xl animate-float-delayed" />
         </div>
+
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
 
         <DialogHeader className="relative z-10">
           <div className="flex items-center space-x-3 mb-2">
-            <div className="p-2 rounded-full bg-blue-100/80 dark:bg-blue-900/20">
-              <FolderPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20">
+              <FolderPlus className="h-5 w-5 text-blue-400" />
             </div>
-            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
               Nueva Colección
             </DialogTitle>
           </div>
-          <DialogDescription className="text-gray-500 dark:text-gray-400">
+          <DialogDescription className="text-gray-400">
             Introduce los detalles de la nueva colección
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-5 relative z-10">
+        <div className="grid gap-6 py-5 relative z-10">
           <div className="space-y-2">
             <label
               htmlFor="name"
-              className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300"
+              className="text-sm font-medium text-gray-300 flex items-center gap-2"
             >
-              <span className="inline-block w-1 h-4 bg-blue-500 dark:bg-blue-400 rounded-full"></span>
+              <FolderPlus className="h-4 w-4 text-blue-400" />
               Nombre
             </label>
             <div className="flex">
@@ -77,77 +110,119 @@ export default function CreateCollectionDialog({ isOpen, onClose, onCreate }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre de la colección"
-                className="rounded-r-none bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/20 dark:focus:ring-blue-400/20"
+                className=" bg-zinc-800/80 border-zinc-700/50 focus:ring-purple-500/30 focus:border-purple-500/50 text-white"
               />
-              <Button
-                type="button"
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="rounded-l-none border border-l-0 border-gray-200 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
-                aria-label="Agregar emoji"
-              >
-                <Smile className="h-4 w-4" />
-              </Button>
             </div>
-            {showEmojiPicker && (
-              <div className="relative z-[99999]">
-                <div className="absolute right-0 mt-1 shadow-lg rounded-lg overflow-hidden">
-                  <Picker
-                    onEmojiClick={(emojiData) => {
-                      setName((prev) => prev + emojiData.emoji);
-                      setShowEmojiPicker(false);
-                    }}
-                    disableAutoFocus
-                    native
-                    theme={theme === "dark" ? "dark" : "light"}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="space-y-2">
             <label
               htmlFor="description"
-              className="text-sm font-medium flex items-center gap-2 text-gray-700 dark:text-gray-300"
+              className="text-sm font-medium text-gray-300 flex items-center gap-2"
             >
-              <span className="inline-block w-1 h-4 bg-purple-500 dark:bg-purple-400 rounded-full"></span>
-              Descripción{" "}
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                (opcional)
-              </span>
+              <BookText className="h-4 w-4 text-purple-400" />
+              Descripción
             </label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Descripción de la colección"
-              className="min-h-[100px] resize-none bg-white/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700/50 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/20 dark:focus:ring-blue-400/20"
+              className="min-h-[100px] resize-none bg-zinc-800/80 border-zinc-700/50 focus:ring-purple-500/30 focus:border-purple-500/50 text-white"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Una buena descripción ayuda a los usuarios a entender el
-              propósito de esta colección.
+            <p className="text-xs text-gray-500">
+              Una buena descripción ayuda a los usuarios a entender el propósito
+              de esta colección.
             </p>
           </div>
-        </div>
 
-        <DialogFooter className="relative z-[5] gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-gray-200 dark:border-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+          <div className="space-y-2">
+            <label
+              htmlFor="tags"
+              className="text-sm font-medium text-gray-300 flex items-center gap-2"
+            >
+              <Tag className="h-4 w-4 text-green-400" />
+              Etiquetas
+            </label>
+            <div className="flex">
+              <Input
+                id="tags"
+                value={currentTag}
+                onChange={(e) => setCurrentTag(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Añadir etiqueta y presionar Enter"
+                className="bg-zinc-800/80 border-zinc-700/50 focus:ring-purple-500/30 focus:border-purple-500/50 text-white"
+              />
+              <Button 
+                type="button" 
+                onClick={handleAddTag} 
+                disabled={!currentTag.trim()}
+                className="ml-2 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-500 hover:to-teal-500"
+              >
+                Añadir
+              </Button>
+            </div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tags.map((tag, index) => (
+                  <Badge 
+                    key={index} 
+                    className={`${
+                      color === 'gradient'
+                        ? 'bg-gradient-to-r from-green-600/20 to-teal-600/20 text-green-600 dark:text-green-400 border-green-600/30'
+                        : ''
+                    } px-2 py-1 flex items-center gap-1`}
+                    style={color !== 'gradient' ? { 
+                      backgroundColor: `${color}20`, 
+                      borderColor: `${color}40`,
+                      color: color
+                    } : {}}
+                  >
+                    {tag}
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemoveTag(tag)}
+                      className="ml-1 hover:text-red-300 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              Las etiquetas te ayudarán a organizar y encontrar tus colecciones más fácilmente.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label
+              className="text-sm font-medium text-gray-300 flex items-center gap-2"
+            >
+              <Palette className="h-4 w-4 text-purple-400" />
+              Color
+            </label>
+            <ColorPicker value={color} onChange={setColor} />
+            <p className="text-xs text-gray-500">
+              Elige un color para personalizar tu colección.
+            </p>
+          </div>
+
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full"
           >
-            Cancelar
-          </Button>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
               onClick={handleSubmit}
               disabled={!name.trim()}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 text-white hover:opacity-90 transition-all"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-none shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 py-6"
             >
+              <FolderPlus className="h-5 w-5" />
               Crear Colección
             </Button>
           </motion.div>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

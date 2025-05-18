@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 
 export function CollectionsSection({ userStats }) {
+  if (!userStats) return null;
+  
+  // Sample collections data - in a real app, this would come from the API
   const collections = [
     {
       name: "Mathematics",
@@ -50,11 +53,19 @@ export function CollectionsSection({ userStats }) {
     },
   ];
 
+  // Get collection stats from userStats if available, otherwise use sample data
+  const totalCollections = userStats?.totalCollections || collections.length;
+  const activeCollections = userStats?.activeCollections || Math.ceil(collections.length * 0.7);
+  const totalCards = collections.reduce((acc, col) => acc + col.totalCards, 0);
+  const masteredCards = collections.reduce((acc, col) => acc + col.masteredCards, 0);
+  const activeStreak = Math.max(...collections.map((col) => col.streak));
+  
   const studyStats = {
-    totalCollections: collections.length,
-    totalCards: collections.reduce((acc, col) => acc + col.totalCards, 0),
-    masteredCards: collections.reduce((acc, col) => acc + col.masteredCards, 0),
-    activeStreak: Math.max(...collections.map((col) => col.streak)),
+    totalCollections,
+    activeCollections,
+    totalCards,
+    masteredCards,
+    activeStreak
   };
 
   return (

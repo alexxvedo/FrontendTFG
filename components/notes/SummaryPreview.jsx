@@ -147,8 +147,31 @@ const SummaryPreview = React.memo(
               </div>
             )}
 
-            <div className="prose prose-invert max-w-none">
-              <ReactMarkdown>{summaryContent}</ReactMarkdown>
+            <div className="prose prose-invert max-w-none prose-headings:mt-6 prose-headings:mb-4 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:my-4 prose-p:leading-relaxed prose-li:my-2 prose-li:ml-4 prose-ul:my-4 prose-ol:my-4 prose-pre:my-4 prose-pre:p-4 prose-pre:bg-zinc-800/50 prose-pre:rounded-md prose-blockquote:my-4 prose-blockquote:pl-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-500/50 prose-blockquote:italic prose-blockquote:text-zinc-300 prose-blockquote:bg-zinc-800/30 prose-blockquote:py-2 prose-blockquote:rounded-r-md text-zinc-200 text-base">
+              <ReactMarkdown
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 pb-1 border-b border-zinc-700/50 mb-4" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-xl font-semibold text-white mt-6 mb-3" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-lg font-medium text-blue-300 mt-5 mb-2" {...props} />,
+                  p: ({node, ...props}) => <p className="my-3 leading-relaxed text-zinc-300" {...props} />,
+                  ul: ({node, ...props}) => <ul className="my-4 space-y-2 list-disc list-inside" {...props} />,
+                  ol: ({node, ...props}) => <ol className="my-4 space-y-2 list-decimal list-inside" {...props} />,
+                  li: ({node, ...props}) => <li className="ml-4 text-zinc-300" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="my-4 pl-4 border-l-4 border-purple-500/50 italic text-zinc-300 bg-zinc-800/30 py-2 px-2 rounded-r-md" {...props} />,
+                  code: ({node, inline, ...props}) => 
+                    inline 
+                      ? <code className="bg-zinc-800 text-purple-300 px-1 py-0.5 rounded text-sm" {...props} />
+                      : <code className="block bg-zinc-800/80 text-zinc-200 p-3 rounded-md my-4 overflow-x-auto text-sm" {...props} />,
+                  pre: ({node, ...props}) => <pre className="bg-zinc-800/80 p-4 rounded-md my-4 overflow-x-auto" {...props} />,
+                  hr: ({node, ...props}) => <hr className="my-6 border-zinc-700" {...props} />,
+                  a: ({node, ...props}) => <a className="text-blue-400 hover:text-blue-300 underline" {...props} />,
+                  table: ({node, ...props}) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-zinc-700 border border-zinc-700 rounded-md" {...props} /></div>,
+                  th: ({node, ...props}) => <th className="bg-zinc-800 px-4 py-2 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider" {...props} />,
+                  td: ({node, ...props}) => <td className="px-4 py-2 border-t border-zinc-800 text-sm" {...props} />,
+                }}
+              >
+                {summaryContent}
+              </ReactMarkdown>
             </div>
           </div>
         </div>

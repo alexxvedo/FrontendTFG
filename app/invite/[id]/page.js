@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
+import { UserIcon, CheckIcon, ShieldIcon } from "lucide-react";
 
 export default function InvitePage() {
   const [inviteData, setInviteData] = useState(null);
@@ -53,7 +54,7 @@ export default function InvitePage() {
     const token = pathname.split("/").pop();
     setIsLoading(true);
     try {
-      const response = await api.workspaces.join(
+      const response = await api.workspaces.joinByInvite(
         inviteData.workspaceId,
         user.email,
         inviteData.permissionType
@@ -72,16 +73,42 @@ export default function InvitePage() {
     }
   };
 
+  // Animaciones
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15,
+      },
+    },
+  };
+
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-red-50 to-pink-50 p-4">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A0A0F]">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full backdrop-blur-sm bg-white/80 border border-red-100"
+          className="relative z-10 max-w-md w-full p-8 rounded-xl backdrop-blur-lg border border-gray-800 bg-gray-900/60"
         >
-          <h1 className="text-2xl font-bold mb-4 text-red-600">Error</h1>
-          <p className="text-gray-700">{error}</p>
+          <h1 className="text-2xl font-bold mb-4 text-red-400">Error</h1>
+          <p className="text-gray-400">{error}</p>
         </motion.div>
       </div>
     );
@@ -89,98 +116,125 @@ export default function InvitePage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A0A0F]">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full backdrop-blur-sm bg-white/80 border border-gray-100 flex flex-col items-center"
+          className="relative z-10 max-w-md w-full p-8 rounded-xl backdrop-blur-lg border border-gray-800 bg-gray-900/60 flex flex-col items-center"
         >
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-700">Verificando invitación...</p>
+          <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-400">Verificando invitación...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A0A0F]">
+      {/* Gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 pointer-events-none" />
+
+      {/* Animated orbs */}
+      <div className="absolute top-20 left-1/4 w-32 h-32 bg-blue-400/10 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute bottom-20 right-1/4 w-32 h-32 bg-purple-400/10 rounded-full blur-3xl animate-pulse delay-1000" />
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full backdrop-blur-sm bg-white/80 border border-gray-100"
+        className="relative z-10 max-w-md w-full p-8 rounded-xl backdrop-blur-lg border border-gray-800 bg-gray-900/60"
       >
         <motion.div
-          initial={{ y: -10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-6"
         >
-          <h1 className="text-3xl font-bold mb-2 text-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            Invitación al Workspace
-          </h1>
-          {inviteData?.workspaceName && (
-            <h2 className="text-xl font-semibold mb-6 text-center text-gray-700">
-              {inviteData.workspaceName}
-            </h2>
-          )}
-        </motion.div>
-        
-        {inviteData && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-6 space-y-4"
-          >
-            <div className="text-center">
-              <p className="text-lg text-gray-700 mb-4">
-                Has sido invitado a unirte a este workspace
-              </p>
-              <div className="flex items-center justify-center mb-6">
-                <div className="px-4 py-3 rounded-lg bg-blue-50 border border-blue-100 inline-flex items-center">
-                  <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-                  <p className="text-gray-700 font-medium">
-                    Nivel de acceso:{" "}
-                    <span className="text-blue-600 font-semibold ml-1">
-                      {inviteData.permissionType === "VIEWER" 
-                        ? "Visualizador" 
-                        : inviteData.permissionType === "EDITOR" 
-                          ? "Editor" 
-                          : "Propietario"}
-                    </span>
-                  </p>
+          <motion.div variants={itemVariants}>
+            <h1 className="text-3xl font-bold mb-2 text-center bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Invitación al Workspace
+            </h1>
+            {inviteData?.workspaceName && (
+              <h2 className="text-xl font-semibold mb-6 text-center text-white">
+                {inviteData.workspaceName}
+              </h2>
+            )}
+          </motion.div>
+
+          {inviteData && (
+            <motion.div variants={itemVariants} className="space-y-6">
+              {/* Inviter information */}
+              {inviteData.inviterName && (
+                <div className="p-4 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                      <UserIcon className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400">Invitado por</p>
+                      <p className="text-white font-medium">
+                        {inviteData.inviterName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Permission level */}
+              <div className="p-4 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                    <ShieldIcon className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Nivel de acceso</p>
+                    <p className="text-white font-medium">
+                      {inviteData.permissionType === "VIEWER"
+                        ? "Visualizador"
+                        : inviteData.permissionType === "EDITOR"
+                        ? "Editor"
+                        : "Propietario"}
+                    </p>
+                  </div>
                 </div>
               </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
-                <p className="text-sm text-gray-600 italic">
-                  Al unirte, podrás colaborar con otros miembros del workspace según tu nivel de permisos.
+
+              {/* Description */}
+              <div className="p-4 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                <p className="text-gray-400 text-sm">
+                  Al unirte, podrás colaborar con otros miembros del workspace
+                  según tu nivel de permisos.
                 </p>
               </div>
-            </div>
-          </motion.div>
-        )}
-        
-        <motion.div 
-          whileHover={{ scale: 1.02 }} 
-          whileTap={{ scale: 0.98 }}
-          className="relative"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur-sm opacity-70 transform -translate-y-1"></div>
-          <Button
-            onClick={handleJoin}
-            disabled={isLoading}
-            className="relative w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 py-6 text-lg font-medium rounded-xl shadow-md hover:shadow-lg"
+            </motion.div>
+          )}
+
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="relative mt-6"
           >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
-                Procesando...
-              </span>
-            ) : (
-              "Unirme al Workspace"
-            )}
-          </Button>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg blur opacity-70 transform -translate-y-1"></div>
+            <Button
+              onClick={handleJoin}
+              disabled={isLoading}
+              className="relative w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-300 py-6 text-lg font-medium rounded-lg shadow-md hover:shadow-lg border-0"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+                  Procesando...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center">
+                  <CheckIcon className="mr-2 h-5 w-5" />
+                  Unirme al Workspace
+                </span>
+              )}
+            </Button>
+          </motion.div>
         </motion.div>
       </motion.div>
     </div>

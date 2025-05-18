@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { workspaceId, permissionType } = body;
+    const { workspaceId, permissionType, inviterName, inviterEmail } = body;
 
     if (!workspaceId || !permissionType) {
       return NextResponse.json(
@@ -14,7 +14,12 @@ export async function POST(req) {
     }
 
     const token = jwt.sign(
-      { workspaceId, permissionType },
+      { 
+        workspaceId, 
+        permissionType, 
+        inviterName, 
+        inviterEmail 
+      },
       process.env.AUTH_SECRET,
       {
         expiresIn: "1d",

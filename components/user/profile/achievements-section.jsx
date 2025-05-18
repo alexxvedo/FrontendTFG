@@ -33,15 +33,24 @@ const confettiConfig = {
   colors: ["#FFD700", "#FFA500", "#FF4500", "#FF6347", "#FF8C00"],
 };
 
-export function AchievementsSection({ userStats }) {
+export function AchievementsSection({ userStats, onStatsUpdated }) {
   const api = useApi();
   const [claimedAchievements, setClaimedAchievements] = useState({});
   const [confettiActive, setConfettiActive] = useState({});
-
-  console.log("User stats: ", userStats);
+  
+  // Safely access achievement data
+  const unlockedAchievements = userStats?.unlockedAchievements || [];
+  const totalAchievements = userStats?.totalAchievements || 0;
+  const achievementProgress = userStats?.achievementProgress || {};
 
   const handleClaimAchievement = async (achievementId) => {
     try {
+      // Verificar si el logro ya está desbloqueado
+      if (unlockedAchievements.includes(achievementId)) {
+        console.log(`Achievement ${achievementId} already claimed`);
+        return;
+      }
+      
       // Marcar como reclamado localmente
       setClaimedAchievements((prev) => ({ ...prev, [achievementId]: true }));
 
@@ -53,12 +62,19 @@ export function AchievementsSection({ userStats }) {
         setConfettiActive((prev) => ({ ...prev, [achievementId]: false }));
       }, 3000);
 
-      // Incrementar el contador de logros
-      await api.userStats.achievementCompleted(userStats.user.email);
+      // Incrementar el contador de logros y guardar el ID del logro
+      await api.userStats.achievementCompleted(userStats.user.email, achievementId);
 
-      // Actualizar la lista de logros desbloqueados
-      if (!userStats.unlockedAchievements.includes(achievementId)) {
-        userStats.unlockedAchievements.push(achievementId);
+      // Crear una copia profunda para evitar mutaciones directas
+      const updatedStats = {
+        ...userStats,
+        unlockedAchievements: [...unlockedAchievements, achievementId],
+        totalAchievements: totalAchievements + 1
+      };
+      
+      // Notificar al componente padre sobre el cambio
+      if (onStatsUpdated) {
+        onStatsUpdated(updatedStats);
       }
     } catch (error) {
       console.error("Error claiming achievement:", error);
@@ -226,7 +242,7 @@ export function AchievementsSection({ userStats }) {
     return achievement.progress >= achievement.target;
   };
 
-  const unlockedAchievements = userStats.unlockedAchievements || [];
+  // Already declared at the top of the component
 
   return (
     <div className="space-y-8">

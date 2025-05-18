@@ -9,14 +9,9 @@ import {
   Clock,
   ArrowRight,
   ArrowLeft,
-  Zap,
   Trophy,
-  Brain,
-  Play,
-  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useRouter } from "next/navigation";
 import { useCollectionStore } from "@/store/collections-store/collection-store";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
@@ -81,36 +76,41 @@ export default function StudySession({ params }) {
       setCompletedCards(studySession.completedCards || 0);
       setStudyProgress(studySession.studyProgress || 0);
       setSessionCompleted(studySession.sessionCompleted || false);
-      
+
       // Inicializar el estado de cada flashcard como "pendiente"
-      setFlashcardStatuses(cards.map((card, index) => ({ 
-        id: card.id, 
-        status: "pending", // pending, wrong, medium, correct
-        position: "queue", // queue (en cola), review (para revisar), completed (completada)
-        originalIndex: index // Mantener el índice original para referencia
-      })));
+      setFlashcardStatuses(
+        cards.map((card, index) => ({
+          id: card.id,
+          status: "pending", // pending, wrong, medium, correct
+          position: "queue", // queue (en cola), review (para revisar), completed (completada)
+          originalIndex: index, // Mantener el índice original para referencia
+        }))
+      );
     }
   }, [studySession]);
 
   useEffect(() => {
     if (flashcards.length > 0 && flashcardStatuses.length > 0) {
       // Crear un nuevo array de estados ordenado según el orden actual de flashcards
-      const newOrderedStatuses = flashcards.map(card => {
-        const status = flashcardStatuses.find(s => s.id === card.id);
-        return status || { 
-          id: card.id, 
-          status: "pending", 
-          position: "queue",
-          originalIndex: 0
-        };
+      const newOrderedStatuses = flashcards.map((card) => {
+        const status = flashcardStatuses.find((s) => s.id === card.id);
+        return (
+          status || {
+            id: card.id,
+            status: "pending",
+            position: "queue",
+            originalIndex: 0,
+          }
+        );
       });
-      
+
       // Añadir las tarjetas completadas al final (que ya no están en flashcards)
       const completedCards = flashcardStatuses.filter(
-        status => status.position === "completed" && 
-        !flashcards.some(card => card.id === status.id)
+        (status) =>
+          status.position === "completed" &&
+          !flashcards.some((card) => card.id === status.id)
       );
-      
+
       setFlashcardStatuses([...newOrderedStatuses, ...completedCards]);
     }
   }, [flashcards]);
@@ -147,22 +147,24 @@ export default function StudySession({ params }) {
 
       // Obtener la tarjeta actual
       const currentCard = flashcards[currentCardIndex];
-      
+
       // Crear una copia de las flashcards para reorganizarlas
       let updatedFlashcards = [...flashcards];
-      
+
       // Eliminar la tarjeta actual de su posición
       updatedFlashcards.splice(currentCardIndex, 1);
-      
+
       // Actualizar el estado de la tarjeta según la evaluación
       const updatedStatuses = [...flashcardStatuses];
-      const statusIndex = updatedStatuses.findIndex(s => s.id === currentCard.id);
-      
+      const statusIndex = updatedStatuses.findIndex(
+        (s) => s.id === currentCard.id
+      );
+
       if (statusIndex !== -1) {
         let newStatus;
         let newPosition;
-        
-        switch(status) {
+
+        switch (status) {
           case "MAL":
             newStatus = "wrong";
             newPosition = "review";
@@ -186,13 +188,13 @@ export default function StudySession({ params }) {
             // La tarjeta ya no se repasará en esta sesión
             break;
         }
-        
+
         updatedStatuses[statusIndex] = {
           ...updatedStatuses[statusIndex],
           status: newStatus,
-          position: newPosition
+          position: newPosition,
         };
-        
+
         setFlashcardStatuses(updatedStatuses);
       }
 
@@ -200,7 +202,7 @@ export default function StudySession({ params }) {
         setFlashcards(updatedFlashcards);
         setIsFlipped(false);
         setIsCardAnimating(false);
-        
+
         // Terminar la animación de reordenamiento después de un tiempo
         setTimeout(() => {
           setIsReordering(false);
@@ -220,7 +222,6 @@ export default function StudySession({ params }) {
           }
         }
       }, 300);
-      
     } catch (error) {
       console.error("Error updating flashcard:", error);
       setIsCardAnimating(false);
@@ -322,7 +323,7 @@ export default function StudySession({ params }) {
             <div className="w-full max-w-3xl flex items-center space-x-1 overflow-hidden">
               {flashcardStatuses.map((card, index) => {
                 let bgColor = "bg-zinc-700"; // Pendiente (gris oscuro)
-                
+
                 if (card.status === "wrong") {
                   bgColor = "bg-red-500"; // Fallada (rojo)
                 } else if (card.status === "medium") {
@@ -330,34 +331,43 @@ export default function StudySession({ params }) {
                 } else if (card.status === "correct") {
                   bgColor = "bg-green-500"; // Correcta (verde)
                 }
-                
+
                 // Resaltar la tarjeta actual
-                const isCurrentCard = flashcards[currentCardIndex]?.id === card.id;
-                const borderClass = isCurrentCard ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-[#0A0A0F]" : "";
-                
+                const isCurrentCard =
+                  flashcards[currentCardIndex]?.id === card.id;
+                const borderClass = isCurrentCard
+                  ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-[#0A0A0F]"
+                  : "";
+
                 // Añadir clases de animación para el reordenamiento
-                const animationClass = isReordering ? "transition-all duration-700 ease-in-out" : "";
-                
+                const animationClass = isReordering
+                  ? "transition-all duration-700 ease-in-out"
+                  : "";
+
                 return (
-                  <div 
-                    key={card.id} 
+                  <div
+                    key={card.id}
                     className={`h-2 flex-1 rounded-full ${bgColor} ${borderClass} ${animationClass}`}
                     title={`Tarjeta ${index + 1}: ${
-                      card.status === "pending" ? "Pendiente" : 
-                      card.status === "wrong" ? "Difícil" : 
-                      card.status === "medium" ? "Medio" : "Fácil"
+                      card.status === "pending"
+                        ? "Pendiente"
+                        : card.status === "wrong"
+                        ? "Difícil"
+                        : card.status === "medium"
+                        ? "Medio"
+                        : "Fácil"
                     }`}
                     style={{
                       order: index, // Usar order de flexbox para reordenar visualmente
-                      minWidth: '8px', // Asegurar un ancho mínimo visible
-                      maxWidth: 'none' // Todas las tarjetas tienen el mismo tamaño máximo
+                      minWidth: "8px", // Asegurar un ancho mínimo visible
+                      maxWidth: "none", // Todas las tarjetas tienen el mismo tamaño máximo
                     }}
                   />
                 );
               })}
             </div>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span className="text-zinc-400 text-sm">
               {completedCards} / {totalCards}
@@ -378,7 +388,7 @@ export default function StudySession({ params }) {
             </div>
           </div>
         </div>
-        
+
         {/* Flashcard */}
         <div className="flex justify-center items-center h-full relative px-4 mt-8">
           <div className="w-full max-w-[800px] mx-auto">

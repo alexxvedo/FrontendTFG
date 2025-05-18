@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import ReactMarkdown from 'react-markdown';
 
 export default function NotesList({ notes = [] }) {
   const router = useRouter();
@@ -189,9 +190,21 @@ export default function NotesList({ notes = [] }) {
               </div>
               
               <div className="flex-1 mb-4">
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3">
-                  {truncateText(note.content || "Sin contenido")}
-                </p>
+                <div className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3 prose prose-invert max-w-none prose-p:my-2 prose-headings:my-2 prose-li:my-1">
+                  <ReactMarkdown
+                    components={{
+                      p: ({node, ...props}) => <p className="my-2 leading-relaxed" {...props} />,
+                      h1: ({node, ...props}) => <h1 className="text-base font-bold" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-base font-semibold" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-base font-medium" {...props} />,
+                      ul: ({node, ...props}) => <ul className="list-disc list-inside" {...props} />,
+                      ol: ({node, ...props}) => <ol className="list-decimal list-inside" {...props} />,
+                      li: ({node, ...props}) => <li className="ml-2" {...props} />,
+                    }}
+                  >
+                    {note.content || "Sin contenido"}
+                  </ReactMarkdown>
+                </div>
               </div>
               
               <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500 mt-auto pt-2 border-t border-zinc-100 dark:border-zinc-800/50">

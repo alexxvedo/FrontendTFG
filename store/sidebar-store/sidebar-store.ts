@@ -44,10 +44,13 @@ export const useSidebarStore = create<SidebarState>()(
         set((state) => ({ isCollapsed: !state.isCollapsed })),
 
       setWorkspaces: (workspaces) => {
-        const currentWorkspaces = get().workspaces;
-        if (JSON.stringify(workspaces) !== JSON.stringify(currentWorkspaces)) {
+        // Asegurarse de que workspaces sea un array
+        const safeWorkspaces = Array.isArray(workspaces) ? workspaces : [];
+        const currentWorkspaces = get().workspaces || [];
+        
+        if (JSON.stringify(safeWorkspaces) !== JSON.stringify(currentWorkspaces)) {
           set({
-            workspaces: workspaces.map((w) => ({
+            workspaces: safeWorkspaces.map((w) => ({
               ...w,
               unreadMessages:
                 currentWorkspaces.find((cw) => cw.id === w.id)

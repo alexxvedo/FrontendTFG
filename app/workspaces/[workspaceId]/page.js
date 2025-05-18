@@ -3,18 +3,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
-import {
-  PanelLeftOpen,
-  UserPlus,
-  Users,
-  Activity,
-  BarChart4,
-  Trophy,
-  ChevronRight,
-} from "lucide-react";
+import { UserPlus, Users, Activity, BarChart4, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import { InviteUserDialog } from "@/components/workspace/invite-user-dialog";
-import { WorkspaceUsersList } from "@/components/workspace/workspace-users-list";
 import {
   Card,
   CardContent,
@@ -30,17 +21,14 @@ import ActivityList from "@/components/dashboard/ActivityList";
 import Overview from "@/components/dashboard/Overview";
 import Members from "@/components/dashboard/Members";
 import Rankings from "@/components/dashboard/Rankings";
-import { useTheme } from "next-themes";
 
-export default function Dashboard({ params }) {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+export default function Dashboard() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const isSidebarOpen = useSidebarStore((state) => state.isSidebarOpen);
   const activeWorkspace = useSidebarStore((state) => state.activeWorkspace);
   const [allUsers, setAllUsers] = useState([]);
   const api = useApi();
-  const { connectedUsers, socket, user: socketUser } = useWorkspaceSocket();
+  const { connectedUsers, socket } = useWorkspaceSocket();
 
   const [activity, setActivity] = useState([]);
   const [usersWithStats, setUsersWithStats] = useState([]);

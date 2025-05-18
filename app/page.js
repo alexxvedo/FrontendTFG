@@ -19,16 +19,41 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 export default function Home() {
+  // Use a state to track if the component has mounted
+  const [mounted, setMounted] = useState(false);
   const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { data: session, status } = useSession();
+  
+  // Only access theme after component has mounted to prevent hydration mismatch
+  const isDark = mounted && theme === "dark";
+
+  // Set mounted to true after component mounts
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fadeIn = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.8 },
   };
+
+  // If not mounted yet, return a pre-rendered version with dark theme (matching your design system)
+  if (!mounted) {
+    return (
+      <main className="min-h-screen bg-[#0A0A0F] text-white overflow-hidden">
+        {/* Pre-rendered content with dark theme */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20 animate-gradient" />
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Loading state or minimal UI */}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -84,27 +109,49 @@ export default function Home() {
             </Link>
             <div className="flex items-center space-x-6">
               <ThemeToggle />
-              <Link href="/login">
-                <Button
-                  variant="ghost"
-                  className={`${
-                    isDark
-                      ? "text-white hover:bg-white/10"
-                      : "text-gray-700 hover:bg-gray-200/50"
-                  } transition-all`}
-                >
-                  Iniciar Sesión
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button
-                  className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
-                    !isDark && "text-white"
-                  } hover:opacity-90 transition-all`}
-                >
-                  Crear Cuenta
-                </Button>
-              </Link>
+              {session?.user ? (
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm">
+                    <span className={`${isDark ? "text-gray-300" : "text-gray-600"}`}>Hola, </span>
+                    <span className={`font-semibold ${isDark ? "text-white" : "text-gray-800"}`}>
+                      {session.user.name}
+                    </span>
+                  </div>
+                  <Link href="/workspaces">
+                    <Button
+                      className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
+                        !isDark && "text-white"
+                      } hover:opacity-90 transition-all`}
+                    >
+                      Acceder a Workspaces
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button
+                      variant="ghost"
+                      className={`${
+                        isDark
+                          ? "text-white hover:bg-white/10"
+                          : "text-gray-700 hover:bg-gray-200/50"
+                      } transition-all`}
+                    >
+                      Iniciar Sesión
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button
+                      className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
+                        !isDark && "text-white"
+                      } hover:opacity-90 transition-all`}
+                    >
+                      Registrarse
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </nav>
@@ -677,23 +724,39 @@ export default function Home() {
                 y mejora tu forma de estudiar.
               </p>
               <div className="flex items-center justify-center space-x-4">
-                <Button
-                  className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
-                    !isDark && "text-white"
-                  } hover:opacity-90 transition-all px-8 py-6 text-lg`}
-                >
-                  Crear Cuenta Gratuita
-                </Button>
-                <Button
-                  variant="outline"
-                  className={`${
-                    isDark
-                      ? "border-gray-700 hover:bg-white/5"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-100"
-                  } transition-all px-8 py-6 text-lg`}
-                >
-                  Ver Tutorial
-                </Button>
+                {session?.user ? (
+                  <Link href="/workspaces">
+                    <Button
+                      className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
+                        !isDark && "text-white"
+                      } hover:opacity-90 transition-all px-8 py-6 text-lg`}
+                    >
+                      Acceder a Workspaces
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href="/register">
+                      <Button
+                        className={`bg-gradient-to-r from-blue-500 to-purple-500 ${
+                          !isDark && "text-white"
+                        } hover:opacity-90 transition-all px-8 py-6 text-lg`}
+                      >
+                        Crear Cuenta Gratuita
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      className={`${
+                        isDark
+                          ? "border-gray-700 hover:bg-white/5"
+                          : "border-gray-300 text-gray-700 hover:bg-gray-100"
+                      } transition-all px-8 py-6 text-lg`}
+                    >
+                      Ver Tutorial
+                    </Button>
+                  </>
+                )}
               </div>
             </motion.div>
           </div>

@@ -1,53 +1,30 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useCollectionStore } from "@/store/collections-store/collection-store";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Plus,
-  Bot,
   ArrowLeft,
   Play,
-  Clock,
-  Users,
-  Star,
-  Trophy,
-  Target,
   Zap,
-  Flame,
   Book,
   Folder,
   StickyNote,
+  ShieldAlert,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useSidebarStore } from "@/store/sidebar-store/sidebar-store";
-import { useStudySessionStore } from "@/store/studySession-store/studySession-store";
 import { useSocket } from "@/context/socket";
+import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import io from "socket.io-client";
 import { toast } from "sonner";
 import { useApi } from "@/lib/api";
 import AIGenerator from "@/components/flashcards/AIGenerator";
-import FlashcardList from "@/components/flashcards/FlashcardList";
 import FlashcardEditor from "@/components/flashcards/FlashcardEditor";
-import { FlashCard } from "@/components/flashcards/FlashCard";
 import Link from "next/link";
-import Stats from "@/components/flashcards/stats";
-import { Skeleton } from "@/components/ui/skeleton";
 import SpacedStudyMode from "@/components/flashcards/SpacedStudyMode";
-import Agent from "@/components/agent/Agent";
-import GameStats from "@/components/collection/GameStats";
 
-import CollectionTabs from "@/components/collection/CollectionTabs";
 import StudyDialog from "@/components/collection/StudyDialog";
 import Background from "@/components/background/background";
 
@@ -58,18 +35,23 @@ import CollectionStats from "@/components/collection/CollectionStats";
 import CollectionResources from "@/components/collection/CollectionResources";
 import CollectionNotes from "@/components/collection/CollectionNotes";
 import FlashcardTabs from "@/components/collection/FlashcardTabs";
+import CollectionNotFound from "@/components/collection/CollectionNotFound";
 
 export default function CollectionPage() {
   const { workspaceId, collectionId } = useParams();
-  const router = useRouter();
-  const { activeWorkspace, updateActiveWorkspace, workspaces } =
-    useSidebarStore();
-
   const { setActiveCollection } = useCollectionStore();
+  const router = useRouter();
 
   const api = useApi();
 
-  const socket = useSocket();
+  const { socket: baseSocket } = useSocket();
+  const {
+    socket,
+    joinCollection,
+    leaveCollection,
+    isConnected,
+    usersInCollection,
+  } = useWorkspaceSocket();
 
   const { data: session } = useSession();
   const user = session?.user;
@@ -78,378 +60,407 @@ export default function CollectionPage() {
   const [workspace, setWorkspace] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
-  const [flashcardsDataBD, setFlashcardsDataBD] = useState(null);
-  const [isHydrated, setIsHydrated] = useState(false);
   const [activeTab, setActiveTab] = useState("flashcards");
   const [openEditor, setOpenEditor] = useState(false);
   const [isSpacedStudyOpen, setIsSpacedStudyOpen] = useState(false);
-  const [isStudyModalOpen, setIsStudyModalOpen] = useState(false);
   const [isStudyDialogOpen, setIsStudyDialogOpen] = useState(false);
   const [studyMode, setStudyMode] = useState(null);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [activeUsers, setActiveUsers] = useState([]);
+  const [userPermission, setUserPermission] = useState(null);
+  const [collectionResources, setCollectionResources] = useState([]);
+  const [errorType, setErrorType] = useState(null);
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  useEffect(() => {
-    const loadCollection = async () => {
-      try {
-        setIsLoading(true);
+  const loadCollection = useCallback(async () => {
+    try {
+      setIsLoading(true);
 
-        const response = await api.collections.get(
-          parseInt(workspaceId),
-          parseInt(collectionId)
+      const response = await api.collections.get(
+        parseInt(workspaceId),
+        parseInt(collectionId)
+      );
+      setCollection(response.data);
+      setActiveCollection(response.data);
+
+      // También cargar el workspace
+      const workspaceResponse = await api.workspaces.get(parseInt(workspaceId));
+      setWorkspace(workspaceResponse.data);
+      setErrorType(null); // Limpiar cualquier error previo
+
+      // Imprimir la estructura completa del workspace para depuración
+      console.log(
+        "Estructura completa del workspace:",
+        JSON.stringify(workspaceResponse.data, null, 2)
+      );
+
+      // Determinar el permiso del usuario actual
+      if (user && workspaceResponse.data) {
+        console.log("Usuario actual:", user);
+
+        // Verificar si el workspace tiene la propiedad users
+        if (
+          workspaceResponse.data.users &&
+          Array.isArray(workspaceResponse.data.users)
+        ) {
+          console.log("Usuarios del workspace:", workspaceResponse.data.users);
+
+          // Buscar el usuario actual en la lista de usuarios del workspace
+          // Probamos diferentes propiedades para encontrar el email
+          const currentUser = workspaceResponse.data.users.find((u) => {
+            // Comprobamos todas las posibles propiedades que podrían contener el email
+            const userEmail = user.email.toLowerCase();
+            const matchEmail = u.email && u.email.toLowerCase() === userEmail;
+            const matchUserEmail =
+              u.userEmail && u.userEmail.toLowerCase() === userEmail;
+
+            console.log(`Comparando usuario del workspace:`, u);
+            console.log(
+              `Match email: ${matchEmail}, Match userEmail: ${matchUserEmail}`
+            );
+
+            return matchEmail || matchUserEmail;
+          });
+
+          console.log("Usuario encontrado en workspace:", currentUser);
+
+          // Si se encuentra el usuario, obtener su tipo de permiso, de lo contrario establecer como NONE
+          const currentUserPermission = currentUser?.permissionType || "NONE";
+
+          console.log("Permiso del usuario:", currentUserPermission);
+          setUserPermission(currentUserPermission);
+        } else {
+          console.log(
+            "El workspace no tiene la propiedad users o no es un array:",
+            workspaceResponse.data
+          );
+
+          // Intentar cargar los usuarios del workspace directamente
+          try {
+            const usersResponse = await api.workspaces.getUsers(
+              parseInt(workspaceId)
+            );
+            console.log("Usuarios obtenidos directamente:", usersResponse.data);
+
+            if (usersResponse.data && Array.isArray(usersResponse.data)) {
+              const currentUser = usersResponse.data.find((u) => {
+                const userEmail = user.email.toLowerCase();
+                const matchEmail =
+                  u.email && u.email.toLowerCase() === userEmail;
+                const matchUserEmail =
+                  u.userEmail && u.userEmail.toLowerCase() === userEmail;
+
+                return matchEmail || matchUserEmail;
+              });
+
+              console.log(
+                "Usuario encontrado en la llamada directa:",
+                currentUser
+              );
+
+              // Si se encuentra el usuario, obtener su tipo de permiso
+              const currentUserPermission =
+                currentUser?.permissionType || "NONE";
+
+              console.log(
+                "Permiso del usuario (de llamada directa):",
+                currentUserPermission
+              );
+              setUserPermission(currentUserPermission);
+            }
+          } catch (error) {
+            console.error("Error al obtener usuarios directamente:", error);
+          }
+        }
+      } else {
+        // Si no hay información de usuario o de usuarios del workspace, establecer como NONE
+        console.log(
+          "No se pudo determinar el permiso, estableciendo como NONE por defecto"
         );
-        setCollection(response.data);
-        setActiveCollection(response.data);
-
-        // También cargar el workspace
-        const workspaceResponse = await api.workspaces.get(
-          parseInt(workspaceId)
-        );
-        setWorkspace(workspaceResponse.data);
-
-        // Cargar las flashcards
-        const flashcardsResponse = await api.flashcards.listByCollection(
-          parseInt(collectionId)
-        );
-
-        // Cargar los documentos (recursos)
-        const resourcesResponse = await api.resources.list(
-          parseInt(collectionId)
-        );
-
-        setCollection((prev) => ({
-          ...prev,
-          ...response.data,
-          flashcards: flashcardsResponse.data,
-          resources: resourcesResponse.data || [],
-        }));
-
-        console.log("Colección cargada:", response.data);
-        console.log("Recursos cargados:", resourcesResponse.data);
-
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error loading collection:", error);
-        toast.error("Error al cargar la colección");
-        setIsLoading(false);
+        setUserPermission("NONE");
       }
-    };
 
-    if (collectionId && workspaceId) {
+      // Cargar las flashcards
+      const flashcardsResponse = await api.flashcards.listByCollection(
+        parseInt(workspaceId),
+        parseInt(collectionId)
+      );
+
+      // Cargar los documentos (recursos)
+      const resourcesResponse = await api.resources.list(
+        parseInt(workspaceId),
+        parseInt(collectionId)
+      );
+
+      setCollection((prev) => ({
+        ...prev,
+        ...response.data,
+        flashcards: flashcardsResponse.data,
+        resources: resourcesResponse.data || [],
+      }));
+
+      console.log("Colección cargada:", response.data);
+      console.log("Recursos cargados:", resourcesResponse.data);
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error al cargar la colección:", error);
+      setIsLoading(false);
+
+      // Determinar el tipo de error
+      if (error.response) {
+        if (error.response.status === 403) {
+          setErrorType("noPermission");
+        } else if (error.response.status === 404) {
+          setErrorType("deleted");
+        } else {
+          setErrorType("notFound");
+        }
+      } else {
+        setErrorType("notFound");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [workspaceId, collectionId, api, setActiveCollection, user]);
+
+  useEffect(() => {
+    if (collection) {
+      setIsLoading(false);
+      // Inicializar los recursos de la colección
+      if (collection.resources && collection.resources.length > 0) {
+        setCollectionResources(collection.resources);
+      }
+    }
+  }, [collection]);
+
+  useEffect(() => {
+    if (collectionId && workspaceId && isHydrated) {
       loadCollection();
     }
-  }, [collectionId, workspaceId]);
+  }, [collectionId, workspaceId, isHydrated]);
 
   useEffect(() => {
-    if (!user || !collection?.id) return;
+    if (!user || !collection?.id || !isConnected) return;
 
-    // Join collection room
-    socket.emit(
-      "join_collection",
-      parseInt(workspaceId),
-      parseInt(collection.id),
-      {
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      }
-    );
+    // Unirse a la colección cuando se carga
+    joinCollection(collection.id, {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+    });
 
-    // Cleanup function
+    // Cleanup: dejar la colección cuando se desmonta el componente
     return () => {
       if (collection?.id) {
-        socket.emit(
-          "leave_collection",
-          parseInt(workspaceId),
-          parseInt(collection.id)
-        );
+        leaveCollection(collection.id, {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        });
       }
     };
-  }, [collection?.id, user, workspaceId, socket]);
+  }, [collection?.id, isConnected, user, joinCollection, leaveCollection]);
 
-  // Listen for active users updates
+  // Actualizar la lista de usuarios activos cuando cambia usersInCollection
+  useEffect(() => {
+    if (collection?.id && usersInCollection[collection.id]) {
+      setActiveUsers(Object.values(usersInCollection[collection.id]));
+    }
+  }, [collection?.id, usersInCollection]);
+
+  // Escuchar eventos de socket
   useEffect(() => {
     if (!socket || !collection?.id) return;
 
+    // Manejar actualización de usuarios en la colección
     const handleCollectionUsersUpdate = (data) => {
-      if (data.collectionId === parseInt(collection.id)) {
-        setActiveUsers(data.users.filter((u) => u.email !== user?.email));
+      if (data.collectionId === collection.id) {
+        setActiveUsers(Object.values(data.users));
       }
     };
 
+    // Manejar cuando un usuario se une a la colección
     const handleUserJoinCollection = (data) => {
       if (
-        data.collectionId === parseInt(collection.id) &&
+        data.collectionId === collection.id &&
         data.user.email !== user?.email
       ) {
-        toast.custom(
-          (t) => (
-            <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/50 dark:border-green-800">
-              <Avatar className="h-8 w-8 ring-1 ring-purple-500/20 dark:ring-pink-500/20">
-                <AvatarImage
-                  src={data.user.image || null}
-                  alt={data.user.name}
-                />
-                <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                  {data.user.name?.charAt(0)?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-green-800 dark:text-green-200">
-                {data.user.name || data.user.email} se ha unido a la colección
-              </span>
-            </div>
-          ),
-          { duration: 3000 }
-        );
+        toast.success(`${data.user.name} se ha unido a la colección`);
       }
     };
 
+    // Manejar cuando un usuario deja la colección
     const handleUserLeaveCollection = (data) => {
       if (
-        data.collectionId === parseInt(collection.id) &&
+        data.collectionId === collection.id &&
         data.user.email !== user?.email
       ) {
-        toast.custom(
-          (t) => (
-            <div className="flex items-center gap-2 p-4 bg-orange-50 border border-orange-200 rounded-lg dark:bg-orange-900/50 dark:border-orange-800">
-              <Avatar className="h-8 w-8 ring-1 ring-purple-500/20 dark:ring-pink-500/20">
-                <AvatarImage
-                  src={data.user.image || null}
-                  alt={data.user.name}
-                />
-                <AvatarFallback className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                  {data.user.name?.charAt(0)?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-orange-800 dark:text-orange-200">
-                {data.user.name || data.user.email} ha abandonado la colección
-              </span>
+        toast.info(`${data.user.name} ha dejado la colección`);
+      }
+    };
+    
+    // Manejar cuando una colección es eliminada
+    const handleCollectionDeleted = (data) => {
+      console.log("Evento collection_deleted recibido:", data);
+      if (data.collectionId === collection.id) {
+        console.log("La colección actual ha sido eliminada");
+        toast.error(
+          <div className="flex flex-col gap-1">
+            <div className="font-semibold">Colección eliminada</div>
+            <div className="text-sm">
+              La colección ha sido eliminada por {data.deletedBy?.name || "un administrador"}.
             </div>
-          ),
-          { duration: 3000 }
+          </div>,
+          { duration: 5000 }
         );
+        
+        // Establecer el tipo de error para mostrar la pantalla de colección eliminada
+        setErrorType("deleted");
+        
+        // Redirigir al workspace después de un breve retraso
+        setTimeout(() => {
+          window.location.href = `/workspaces/${workspaceId}`;
+        }, 1500);
       }
     };
 
+    // Suscribirse a eventos
     socket.on("collection_users_updated", handleCollectionUsersUpdate);
-    socket.on("user_entered_collection", handleUserJoinCollection);
-    socket.on("user_left_collection", handleUserLeaveCollection);
+    socket.on("user_join_collection", handleUserJoinCollection);
+    socket.on("user_leave_collection", handleUserLeaveCollection);
+    socket.on("collection_deleted", handleCollectionDeleted);
 
-    // Request initial state
-    socket.emit("get_collections_users", parseInt(workspaceId));
-
+    // Limpiar suscripciones
     return () => {
       socket.off("collection_users_updated", handleCollectionUsersUpdate);
-      socket.off("user_entered_collection", handleUserJoinCollection);
-      socket.off("user_left_collection", handleUserLeaveCollection);
+      socket.off("user_join_collection", handleUserJoinCollection);
+      socket.off("user_leave_collection", handleUserLeaveCollection);
+      socket.off("collection_deleted", handleCollectionDeleted);
     };
   }, [socket, collection?.id, user?.email, workspaceId]);
 
-  const handleFlashcardAdded = useCallback(
-    async (newFlashcard) => {
-      try {
-        // Actualizar la colección con la nueva flashcard
-        const flashcardsResponse = await api.flashcards.listByCollection(
-          parseInt(collectionId)
-        );
-        setCollection((prev) => ({
-          ...prev,
-          flashcards: flashcardsResponse.data,
-        }));
-        toast.success("Flashcard añadida correctamente");
-      } catch (error) {
-        console.error(
-          "Error updating collection after adding flashcard:",
-          error
-        );
-        toast.error("Error al actualizar la colección");
-      }
-    },
-    [collectionId]
-  );
+  // Verificar si el usuario tiene permisos de edición
+  // Un usuario con rol OWNER o EDITOR en el workspace puede editar cualquier colección
+  const canEdit = ["EDITOR", "OWNER"].includes(userPermission);
+  
+  // Función para cargar flashcards de una colección
+  const fetchFlashcardsData = async (collectionId) => {
+    try {
+      const flashcardsResponse = await api.flashcards.listByCollection(
+        parseInt(workspaceId),
+        parseInt(collectionId)
+      );
+      setCollection((prev) => ({
+        ...prev,
+        flashcards: flashcardsResponse.data,
+      }));
+    } catch (error) {
+      console.error("Error al cargar flashcards:", error);
+    }
+  };
 
-  const handleNoteSaved = useCallback(
-    async (noteData) => {
-      try {
-        // Actualizar la colección con la nueva nota
-        const notesResponse = await api.notes.getNotes(parseInt(collectionId));
-        setCollection((prev) => ({
-          ...prev,
-          notes: notesResponse,
-        }));
-        toast.success("Nota guardada correctamente");
-      } catch (error) {
-        console.error("Error updating collection after adding note:", error);
-        toast.error("Error al actualizar la colección");
-      }
-    },
-    [collectionId]
-  );
+  // Manejar cuando se añade una nueva flashcard
+  const handleFlashcardAdded = () => {
+    if (collection?.id) {
+      fetchFlashcardsData(collection.id);
+    }
+  };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 dark:border-blue-500"></div>
-          <p className="text-sm text-muted-foreground dark:text-gray-400">
-            Loading collection...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!collection || !workspace) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-sm text-muted-foreground dark:text-gray-400">
-            Collection not found
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Manejar cuando se guarda una nota
+  const handleNoteSaved = () => {
+    // Actualizar la vista de notas si es necesario
+    if (activeTab === "notes") {
+      // Aquí podríamos recargar las notas si fuera necesario
+      console.log("Nota guardada, actualizando vista si es necesario");
+    }
+  };
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0A0A0F] dark:text-white">
+    <div className="flex flex-col min-h-screen bg-background dark:bg-[#0A0A0F] text-foreground dark:text-white">
       <Background />
 
-      <div className="sticky top-0 z-50 backdrop-blur-xl border-b border-blue-900/20 bg-white/5 dark:bg-black/10">
-        <div className="container min-w-full mx-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-5">
-              <Link
-                href={`/workspaces/${workspaceId}/collections`}
-                className="flex items-center gap-2 text-zinc-600 hover:text-blue-400 dark:text-zinc-400 dark:hover:text-blue-400 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span className="font-medium">Volver</span>
-              </Link>
-              <div className="flex flex-col">
-                <h2 className="text-3xl font-bold bg-clip-text ">
-                  {collection.name}
-                </h2>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500/10">
-                      <Star className="h-3 w-3 text-yellow-500" />
-                    </div>
-                    <span className="text-sm font-medium text-yellow-500">
-                      Nivel {Math.floor(collection.flashcards?.length / 5) + 1}
-                    </span>
-                  </div>
-                  <div className="h-3 w-px bg-zinc-700/50" />
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-orange-500/10">
-                      <Flame className="h-3 w-3 text-orange-500" />
-                    </div>
-                    <span className="text-sm font-medium text-orange-500">
-                      {collection.flashcards?.length || 0} Flashcards
-                    </span>
-                  </div>
-                </div>
+      <div className="container mx-auto px-4 py-8 z-10 relative">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-2">
+            <Link
+              href={`/workspaces/${workspaceId}`}
+              className="flex items-center text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              <span className="text-sm">Volver</span>
+            </Link>
+            <h1 className="text-3xl font-bold">{collection?.name}</h1>
+            {!canEdit && (
+              <div className="ml-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                <ShieldAlert className="h-3 w-3 mr-1" />
+                Solo lectura
               </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-5">
-              <div className="flex items-center justify-between gap-4">
-                {/* Botón Añadir Flashcard */}
-                <button
-                  onClick={() => setOpenEditor(true)}
-                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white/5 backdrop-blur-sm px-4 text-sm font-medium text-zinc-200 shadow-lg shadow-blue-500/10 ring-1 ring-blue-400/20 transition duration-300 hover:shadow-blue-500/20 hover:ring-blue-400/40"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="font-medium">Nueva Flashcard</span>
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-
-                <div className="h-6 w-px bg-zinc-700/50" />
-
-                {/* Botón Práctica Libre */}
-                <button
-                  onClick={() => {
-                    setStudyMode("FREE");
-                    setIsStudyDialogOpen(true);
-                  }}
-                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-4 text-sm font-medium text-white shadow-lg shadow-blue-500/20 transition duration-300 hover:shadow-blue-500/30"
-                >
-                  <div className="flex items-center gap-2">
-                    <Play className="h-4 w-4" />
-                    <span className="font-medium">Práctica Libre</span>
-                  </div>
-                  <div className="absolute -inset-px rounded-xl bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-20 transition-opacity" />
-                </button>
-
-                {/* Botón Repaso Espaciado */}
-                <button
-                  onClick={() => {
-                    setStudyMode("SPACED");
-                    setIsStudyDialogOpen(true);
-                  }}
-                  className="relative group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 text-sm font-medium text-white shadow-lg shadow-purple-500/20 transition duration-300 hover:shadow-purple-500/30"
-                >
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    <span className="font-medium">Repaso Espaciado</span>
-                  </div>
-                  <div className="absolute -inset-px rounded-xl bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity" />
-                </button>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Progress Bar */}
-          <div className="mt-2 mb-4 bg-zinc-900/20 backdrop-blur-sm rounded-xl p-3 border border-zinc-800/30">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-zinc-300">
-                  Progreso de la Colección
-                </span>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-                  <Target className="h-3 w-3 text-blue-400" />
-                  <span className="text-xs font-medium text-blue-400">
-                    {Math.min(
-                      100,
-                      Math.floor(
-                        ((collection.flashcards?.length || 0) / 20) * 100
-                      )
-                    )}
-                    % Completado
-                  </span>
+          <div className="flex items-center space-x-4">
+            <div className="flex -space-x-2 mr-4">
+              {activeUsers.slice(0, 5).map((user, index) => (
+                <Avatar
+                  key={user.email || index}
+                  className="border-2 border-background dark:border-[#0A0A0F] h-8 w-8"
+                >
+                  <AvatarImage src={user.image} alt={user.name} />
+                  <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
+                </Avatar>
+              ))}
+              {activeUsers.length > 5 && (
+                <div className="h-8 w-8 rounded-full bg-muted dark:bg-gray-800 flex items-center justify-center text-xs border-2 border-background dark:border-[#0A0A0F]">
+                  +{activeUsers.length - 5}
                 </div>
-              </div>
-              <span className="text-sm font-medium text-zinc-400">
-                {collection.flashcards?.length || 0}/20 Tarjetas
-              </span>
+              )}
             </div>
-            <div className="h-2.5 w-full bg-zinc-800/50 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 relative"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    Math.floor(
-                      ((collection.flashcards?.length || 0) / 20) * 100
-                    )
-                  )}%`,
+
+            <div className="flex space-x-2">
+              <button
+                onClick={() => {
+                  setStudyMode("normal");
+                  setIsStudyDialogOpen(true);
                 }}
+                className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-primary dark:bg-blue-600 text-primary-foreground dark:text-white hover:bg-primary/90 dark:hover:bg-blue-700 transition-colors"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent animate-shimmer" />
-              </div>
+                <Play className="h-4 w-4 mr-2" />
+                Estudiar
+              </button>
+              <button
+                onClick={() => setIsSpacedStudyOpen(true)}
+                className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Repaso espaciado
+              </button>
+              
+              {/* Separador vertical */}
+              <div className="h-8 border-l border-gray-300/20 dark:border-gray-700/30 mx-2"></div>
+
+              {canEdit && (
+                <button
+                  onClick={() => setOpenEditor(true)}
+                  className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-primary/10 dark:bg-blue-500/20 text-primary dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-500/30 transition-colors"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Añadir flashcard
+                </button>
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      <Separator className="bg-blue-900/20 opacity-50" />
+        <Separator className="my-4 bg-gray-200/10" />
 
-      <div className="container relative min-w-full mx-auto px-6 pt-6">
-        <div className="border-b border-border dark:border-gray-800 mb-6">
-          <div className="flex space-x-6">
+        <div className="flex flex-col space-y-4">
+          <div className="flex border-b border-gray-200/10 dark:border-gray-800/50">
             <button
               onClick={() => setActiveTab("flashcards")}
               className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
@@ -497,23 +508,30 @@ export default function CollectionPage() {
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-2">
           {activeTab === "flashcards" && (
-            <FlashcardTabs collection={collection} isLoading={isLoading} />
+            <FlashcardTabs
+              collection={collection}
+              isLoading={isLoading}
+              canEdit={canEdit}
+            />
           )}
           {activeTab === "stats" && <CollectionStats collection={collection} />}
           {activeTab === "resources" && (
-            <CollectionResources collection={collection} />
+            <CollectionResources collection={collection} canEdit={canEdit} />
           )}
-          {activeTab === "notes" && <CollectionNotes />}
+          {activeTab === "notes" && <CollectionNotes canEdit={canEdit} />}
         </div>
       </div>
-      <FlashcardEditor
-        open={openEditor}
-        onOpenChange={setOpenEditor}
-        collection={collection}
-        onFlashcardAdded={handleFlashcardAdded}
-      />
+
+      {canEdit && (
+        <FlashcardEditor
+          open={openEditor}
+          onOpenChange={setOpenEditor}
+          collection={collection}
+          onFlashcardAdded={handleFlashcardAdded}
+        />
+      )}
 
       <Dialog
         open={isAIDialogOpen}
@@ -551,20 +569,16 @@ export default function CollectionPage() {
       />
 
       <PetAgent
-        resources={collection.resources || []}
-        collectionId={collection.id}
+        resources={
+          collectionResources.length > 0
+            ? collectionResources
+            : collection?.resources || []
+        }
+        collectionId={collection?.id}
         onFlashcardCreated={handleFlashcardAdded}
         onNoteSaved={handleNoteSaved}
+        canEdit={canEdit}
       />
-
-      {/*
-      <Agent
-        resources={resources}
-        collectionId={collection.id}
-        onNoteCreated={setNotes}
-        onFlashcardCreated={handleFlashcardAdded}
-      />
-       */}
     </div>
   );
 }

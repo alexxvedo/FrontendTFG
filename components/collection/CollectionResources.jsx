@@ -119,7 +119,13 @@ const canPreview = (fileType, fileName) => {
 };
 
 // Componente de vista previa
-const ResourcePreview = ({ resource, onClose, api, collectionId }) => {
+const ResourcePreview = ({
+  resource,
+  onClose,
+  api,
+  collectionId,
+  workspaceId,
+}) => {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -129,6 +135,7 @@ const ResourcePreview = ({ resource, onClose, api, collectionId }) => {
       try {
         setLoading(true);
         const response = await api.resources.download(
+          workspaceId,
           collectionId,
           resource.id
         );
@@ -165,7 +172,7 @@ const ResourcePreview = ({ resource, onClose, api, collectionId }) => {
         URL.revokeObjectURL(previewData);
       }
     };
-  }, [resource, api, collectionId]);
+  }, [resource, api, collectionId, workspaceId]);
 
   const renderPreview = () => {
     if (loading) {
@@ -314,7 +321,9 @@ const ResourcePreview = ({ resource, onClose, api, collectionId }) => {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => api.resources.download(collection.id, resource.id)}
+              onClick={() =>
+                api.resources.download(workspaceId, collectionId, resource.id)
+              }
               className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
               title="Descargar"
             >
@@ -337,7 +346,10 @@ const ResourcePreview = ({ resource, onClose, api, collectionId }) => {
   );
 };
 
-export default function CollectionResources({ collection }) {
+export default function CollectionResources({
+  collection,
+  onResourceUploaded,
+}) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState(new Set());
   const fileInputRef = useRef(null);
@@ -351,20 +363,23 @@ export default function CollectionResources({ collection }) {
   const api = useApi();
 
   useEffect(() => {
-    const loadResources = async () => {
-      try {
-        const response = await api.resources.list(collection.id);
-        setResources(response.data);
-      } catch (error) {
-        console.error("Error loading resources:", error);
-        toast.error("Error al cargar los recursos");
-      }
-    };
-
     if (collection?.id) {
       loadResources();
     }
-  }, [collection?.id]);
+  }, [collection?.id, collection?.workspaceId]);
+
+  const loadResources = async () => {
+    try {
+      const response = await api.resources.list(
+        collection.workspaceId,
+        collection.id
+      );
+      setResources(response.data);
+    } catch (error) {
+      console.error("Error loading resources:", error);
+      toast.error("Error al cargar los recursos");
+    }
+  };
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -379,43 +394,59 @@ export default function CollectionResources({ collection }) {
   }, []);
 
   const handleFileUpload = async (files) => {
-    try {
-      setIsUploading(true);
-      const uploadedFiles = [];
+    if (!files || files.length === 0) return;
 
-      for (const file of files) {
-        setUploadingFiles((prev) => new Set([...prev, file.name]));
-        try {
-          const response = await api.resources.upload(collection.id, file);
-          uploadedFiles.push({
-            id: response.data.id,
-            fileName: file.name,
-            fileSize: file.size,
-            type: file.type,
-          });
-        } finally {
-          setUploadingFiles((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(file.name);
-            return newSet;
-          });
-        }
+    setIsUploading(true);
+    const newUploadingFiles = new Set([...uploadingFiles]);
+
+    // Añadir los nombres de los archivos al conjunto de archivos en carga
+    Array.from(files).forEach((file) => {
+      newUploadingFiles.add(file.name);
+    });
+
+    setUploadingFiles(newUploadingFiles);
+
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach((file) => {
+        formData.append("file", file);
+      });
+
+      const response = await api.resources.upload(
+        collection.workspaceId,
+        collection.id,
+        formData
+      );
+
+      // Obtener los recursos recién subidos
+      const newResources = response?.data || [];
+
+      // Actualizar la lista local de recursos
+      loadResources();
+
+      // Notificar al componente padre sobre los nuevos recursos
+      if (onResourceUploaded && newResources.length > 0) {
+        onResourceUploaded(newResources);
       }
 
-      setResources((prev) => [...prev, ...uploadedFiles]);
       toast.success("Archivos subidos correctamente");
     } catch (error) {
-      console.error("Error uploading files:", error);
-      toast.error("Error al subir los archivos");
+      console.error("Error al subir archivos:", error);
+      toast.error("Error al subir archivos");
     } finally {
       setIsUploading(false);
+      setUploadingFiles(new Set());
     }
   };
 
   const handleDownload = async (documentId) => {
     try {
       // Obtener la respuesta con los encabezados
-      const response = await api.resources.download(collection.id, documentId);
+      const response = await api.resources.download(
+        collection.workspaceId,
+        collection.id,
+        documentId
+      );
 
       if (!response || !response.data) {
         throw new Error("❌ La respuesta de la API es inválida o vacía");
@@ -462,14 +493,20 @@ export default function CollectionResources({ collection }) {
     }
   };
 
-  const handleDeleteFile = async (documentId) => {
-    try {
-      await api.resources.delete(collection.id, documentId);
-      setResources((prev) => prev.filter((r) => r.id !== documentId));
-      toast.success("Archivo eliminado correctamente");
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      toast.error("Error al eliminar el archivo");
+  const handleDeleteResource = async (resourceId) => {
+    if (window.confirm("¿Estás seguro de que deseas eliminar este recurso?")) {
+      try {
+        await api.resources.delete(
+          collection.workspaceId,
+          collection.id,
+          resourceId
+        );
+        setResources((prev) => prev.filter((r) => r.id !== resourceId));
+        toast.success("Recurso eliminado correctamente");
+      } catch (error) {
+        console.error("Error deleting resource:", error);
+        toast.error("Error al eliminar el recurso");
+      }
     }
   };
 
@@ -681,7 +718,7 @@ export default function CollectionResources({ collection }) {
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeleteFile(resource.id)}
+                        onClick={() => handleDeleteResource(resource.id)}
                         className="rounded-lg p-2 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                         title="Eliminar"
                       >
@@ -782,6 +819,7 @@ export default function CollectionResources({ collection }) {
           onClose={handleClosePreview}
           api={api}
           collectionId={collection.id}
+          workspaceId={collection.workspaceId}
         />
       )}
     </div>

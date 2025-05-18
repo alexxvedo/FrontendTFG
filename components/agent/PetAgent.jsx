@@ -49,6 +49,7 @@ const PetAgent = ({
   resources = [],
   collectionId,
   onNoteSaved,
+  canEdit,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -87,6 +88,9 @@ const PetAgent = ({
   const [flashcardStates, setFlashcardStates] = useState({});
   const scrollContainerRef = useRef(null);
   const scrollPositionRef = useRef(0);
+  
+  // Estado para almacenar los recursos disponibles
+  const [availableResources, setAvailableResources] = useState(resources);
 
   // Estado para controlar la posición del botón
   const [buttonPosition, setButtonPosition] = useState("right");
@@ -123,6 +127,37 @@ const PetAgent = ({
       }, 300);
     }
   }, [isOpen]);
+  
+  // Actualizar los recursos disponibles cuando cambian los props
+  useEffect(() => {
+    setAvailableResources(resources);
+  }, [resources]);
+  
+  // Función para actualizar los recursos cuando se sube un nuevo documento
+  const handleResourcesUpdated = (newResources) => {
+    setAvailableResources(prevResources => {
+      // Combinar los recursos existentes con los nuevos
+      const updatedResources = [...prevResources];
+      
+      // Añadir solo los recursos que no existen ya
+      newResources.forEach(newResource => {
+        const exists = updatedResources.some(r => r.id === newResource.id);
+        if (!exists) {
+          updatedResources.push(newResource);
+        }
+      });
+      
+      return updatedResources;
+    });
+    
+    // Si no hay documento seleccionado, seleccionar el primero de los nuevos
+    if (!selectedDocument && newResources.length > 0) {
+      setSelectedDocument(newResources[0].id);
+    }
+    
+    // Mostrar notificación
+    toast.success("Nuevos documentos disponibles para consulta");
+  };
 
   const handleSendMessage = useCallback(async () => {
     if (!input.trim()) return;
@@ -452,7 +487,7 @@ const PetAgent = ({
                   <SelectValue placeholder="Selecciona un documento" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  {resources.map((resource) => (
+                  {availableResources.map((resource) => (
                     <SelectItem key={resource.id} value={resource.id}>
                       {resource.fileName || `Documento ${resource.id}`}
                     </SelectItem>
@@ -519,7 +554,7 @@ const PetAgent = ({
                   <SelectValue placeholder="Selecciona un documento" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  {resources.map((resource) => (
+                  {availableResources.map((resource) => (
                     <SelectItem key={resource.id} value={resource.id}>
                       {resource.fileName || `Documento ${resource.id}`}
                     </SelectItem>
@@ -569,7 +604,7 @@ const PetAgent = ({
                   <SelectValue placeholder="Selecciona un documento" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  {resources.map((resource) => (
+                  {availableResources.map((resource) => (
                     <SelectItem key={resource.id} value={resource.id}>
                       {resource.fileName || `Documento ${resource.id}`}
                     </SelectItem>

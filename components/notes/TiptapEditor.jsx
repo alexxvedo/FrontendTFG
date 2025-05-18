@@ -71,149 +71,240 @@ import { Label } from "@/components/ui/label";
 
 const cursorPluginKey = new PluginKey("cursor");
 
-const CursorExtension = Extension.create({
-  name: "cursor",
-  addOptions() {
-    return {
-      cursors: new Map(),
-      onCursorUpdate: () => {},
-    };
-  },
-  onCreate() {
-    let debounceTimeout;
-    const updateCursorPosition = (editor) => {
-      const { from, to } = editor.state.selection;
-      clearTimeout(debounceTimeout);
-      debounceTimeout = setTimeout(() => {
-        this.options.onCursorUpdate({ from, to });
-      }, 50);
-    };
-
-    this.editor.on("selectionUpdate", ({ editor }) => {
-      updateCursorPosition(editor);
-    });
-
-    this.editor.on("focus", ({ editor }) => {
-      updateCursorPosition(editor);
-    });
-  },
-  addProseMirrorPlugins() {
-    const { cursors } = this.options;
-
-    return [
-      new Plugin({
-        key: cursorPluginKey,
-        state: {
-          init() {
-            return DecorationSet.empty;
-          },
-          apply(tr, old) {
-            const decorations = [];
-
-            cursors.forEach(({ userData, cursor }, userId) => {
-              if (cursor && userData) {
-                const hue =
-                  Math.abs(
-                    userData.email
-                      .split("")
-                      .reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                  ) % 360;
-                const cursorColor = `hsl(${hue}, 70%, 50%)`;
-
-                try {
-                  // Primero añadir la selección si existe
-                  if (cursor.from !== cursor.to) {
-                    decorations.push(
-                      Decoration.inline(cursor.from, cursor.to, {
-                        class: "user-selection",
-                        style: `background-color: hsla(${hue}, 85%, 65%, 0.5)`,
-                      })
-                    );
-                  }
-
-                  // Luego añadir el cursor en la posición final de la selección
-                  const cursorPos = cursor.to;
-                  if (cursorPos >= 0 && cursorPos <= tr.doc.content.size) {
-                    // Crear un contenedor para el cursor
-                    const container = document.createElement("span");
-                    container.className = "cursor-container";
-                    container.style.position = "relative";
-                    container.style.display = "inline-block";
-                    container.style.width = "0";
-                    container.style.height = "0";
-
-                    // Crear un cursor mucho más visible
-                    const cursorElement = document.createElement("div");
-
-                    // Aplicar estilos para un cursor muy visible
-                    cursorElement.style.position = "absolute";
-                    cursorElement.style.width = "2px"; // Cursor muy grueso
-                    cursorElement.style.height = "1em";
-                    cursorElement.style.backgroundColor = cursorColor;
-                    cursorElement.style.left = "-1px";
-                    cursorElement.style.top = "-0.9em";
-                    cursorElement.style.zIndex = "1000";
-                    cursorElement.style.opacity = "0.9";
-                    cursorElement.style.animation = "blink 1s infinite";
-                    cursorElement.style.border = "none";
-                    cursorElement.style.borderRadius = "1px";
-
-                    // Añadir un brillo para hacerlo más visible
-                    cursorElement.style.boxShadow = `0 0 3px ${cursorColor}, 0 0 5px ${cursorColor}`;
-
-                    container.appendChild(cursorElement);
-
-                    decorations.push(
-                      Decoration.widget(cursorPos, () => container, {
-                        key: `cursor-${userId}`,
-                        side: 1,
-                      })
-                    );
-                  }
-                } catch (error) {
-                  console.error("Error creating cursor decoration:", error);
-                }
-              }
-            });
-
-            return DecorationSet.create(tr.doc, decorations);
-          },
-        },
-        props: {
-          decorations(state) {
-            return this.getState(state);
-          },
-        },
-      }),
-    ];
-  },
-});
-
-const MenuBar = ({ editor }) => {
-  if (!editor) {
-    return null;
-  }
-
+const TiptapEditor = ({
+  content,
+  onChange,
+  onCursorUpdate,
+  cursors,
+  placeholder = "Empieza a escribir...",
+}) => {
+  const [localCursors, setLocalCursors] = useState(new Map());
   const [linkUrl, setLinkUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [tableSize, setTableSize] = useState({ rows: 3, cols: 3 });
   const [hoveredCell, setHoveredCell] = useState({ row: 0, col: 0 });
 
-  const addImage = () => {
-    if (imageUrl) {
-      editor.chain().focus().setImage({ src: imageUrl }).run();
-      setImageUrl("");
-    }
-  };
+  const { data: session } = useSession();
 
-  const setLink = () => {
-    if (linkUrl) {
-      editor.chain().focus().setLink({ href: linkUrl }).run();
-      setLinkUrl("");
-    } else {
-      editor.chain().focus().unsetLink().run();
+  // Sincronizar los cursors externos con el estado local
+  useEffect(() => {
+    if (cursors) {
+      console.log("Actualizando cursores locales:", Array.from(cursors.entries()));
+      setLocalCursors(new Map(cursors));
     }
-  };
+  }, [cursors]);
+
+  // Log cursor updates for debugging
+  useEffect(() => {
+    if (localCursors.size > 0) {
+      console.log(
+        "Current cursors in editor:",
+        Array.from(localCursors.entries()).map(([id, data]) => ({
+          id,
+          name: data.userData?.name,
+          email: data.userData?.email,
+          position: data.cursor
+            ? `${data.cursor.from}-${data.cursor.to}`
+            : "unknown",
+        }))
+      );
+    }
+  }, [localCursors]);
+
+  // Crear extensión de cursor simplificada
+  const CursorExtensionSimple = Extension.create({
+    name: "cursor",
+    addOptions() {
+      return {
+        cursors: localCursors,
+        onCursorUpdate: () => {},
+      };
+    },
+    onCreate() {
+      let debounceTimeout;
+      const updateCursorPosition = (editor) => {
+        const { from, to } = editor.state.selection;
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(() => {
+          const { onCursorUpdate } = this.options;
+          if (onCursorUpdate) {
+            onCursorUpdate({ from, to });
+          }
+        }, 50);
+      };
+
+      this.editor.on("selectionUpdate", ({ editor }) => {
+        updateCursorPosition(editor);
+      });
+
+      this.editor.on("focus", ({ editor }) => {
+        updateCursorPosition(editor);
+      });
+    },
+    addProseMirrorPlugins() {
+      const { cursors } = this.options;
+      return [
+        new Plugin({
+          key: cursorPluginKey,
+          state: {
+            init() {
+              return DecorationSet.empty;
+            },
+            apply(tr, old) {
+              const decorations = [];
+              
+              if (cursors) {
+                cursors.forEach(({ userData, cursor }, userId) => {
+                  if (cursor && userData && userData.email !== session?.user?.email) {
+                    try {
+                      // Generar color basado en el email
+                      const hue = Math.abs(
+                        userData.email
+                          .split("")
+                          .reduce((acc, char) => acc + char.charCodeAt(0), 0)
+                      ) % 360;
+                      const cursorColor = `hsl(${hue}, 70%, 50%)`;
+                      
+                      // Añadir selección si existe
+                      if (cursor.from !== cursor.to) {
+                        decorations.push(
+                          Decoration.inline(cursor.from, cursor.to, {
+                            class: "user-selection",
+                            style: `background-color: hsla(${hue}, 70%, 50%, 0.3)`,
+                          })
+                        );
+                      }
+                      
+                      // Añadir cursor
+                      const cursorElement = document.createElement("div");
+                      cursorElement.className = "remote-cursor";
+                      cursorElement.style.backgroundColor = cursorColor;
+                      
+                      decorations.push(
+                        Decoration.widget(cursor.to, () => cursorElement, {
+                          key: `cursor-${userId}`,
+                        })
+                      );
+                    } catch (error) {
+                      console.error("Error rendering cursor:", error);
+                    }
+                  }
+                });
+              }
+              
+              return DecorationSet.create(tr.doc, decorations);
+            },
+          },
+          props: {
+            decorations(state) {
+              return this.getState(state);
+            },
+          },
+        }),
+      ];
+    },
+  });
+
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          heading: {
+            levels: [1, 2, 3],
+          },
+          codeBlock: {
+            HTMLAttributes: {
+              class:
+                "bg-gray-900 rounded-md p-4 font-mono text-sm my-4 overflow-x-auto",
+            },
+          },
+        }),
+        Underline,
+        TextAlign.configure({
+          types: ["heading", "paragraph"],
+        }),
+        Highlight.configure({
+          multicolor: true,
+        }),
+        Image,
+        Link.configure({
+          openOnClick: true,
+          HTMLAttributes: {
+            class:
+              "text-white hover:text-gray-300 underline decoration-gray-400/30 underline-offset-2 transition-colors",
+          },
+        }),
+        Table.configure({
+          resizable: true,
+          HTMLAttributes: {
+            class: "border-collapse table-auto w-full",
+          },
+        }),
+        TableRow.configure({
+          HTMLAttributes: {
+            class: "border-b border-border",
+          },
+        }),
+        TableHeader.configure({
+          HTMLAttributes: {
+            class:
+              "border-b-2 border-border bg-card/50 font-bold text-left p-2",
+          },
+        }),
+        TableCell.configure({
+          HTMLAttributes: {
+            class: "border border-border p-2",
+          },
+        }),
+        Color,
+        TextStyle,
+        Placeholder.configure({
+          placeholder,
+          emptyEditorClass: "is-editor-empty",
+        }),
+        HorizontalRule.configure({
+          HTMLAttributes: {
+            class: "border-t border-border my-6",
+          },
+        }),
+        CursorExtensionSimple.configure({
+          cursors: localCursors,
+          onCursorUpdate,
+        }),
+      ],
+      content,
+      onUpdate: ({ editor }) => {
+        const json = editor.getJSON();
+        onChange(json);
+      },
+      editorProps: {
+        attributes: {
+          class:
+            "prose prose-invert prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none",
+        },
+      },
+    },
+    [localCursors]
+  );
+
+  // Update editor content when the content prop changes
+  useEffect(() => {
+    if (editor && content) {
+      // Only update if the content is different to avoid infinite loops
+      const currentContent = editor.getJSON();
+      const stringifiedCurrent = JSON.stringify(currentContent);
+      const stringifiedNew = JSON.stringify(content);
+
+      if (stringifiedCurrent !== stringifiedNew) {
+        console.log("Updating editor content:", content);
+        editor.commands.setContent(content);
+      }
+    }
+  }, [editor, content]);
+
+  if (!editor) {
+    return null;
+  }
 
   const menuGroups = [
     {
@@ -348,7 +439,7 @@ const MenuBar = ({ editor }) => {
             editor
               .chain()
               .focus()
-              .insertTable({ rows: tableSize.rows, cols: tableSize.cols, withHeaderRow: true })
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
               .run(),
         },
         {
@@ -378,516 +469,21 @@ const MenuBar = ({ editor }) => {
     },
   ];
 
-  return (
-    <div className="tiptap-toolbar flex flex-wrap gap-1 p-2 bg-card border-b border-border rounded-t-lg backdrop-blur-sm">
-      {menuGroups.map((group, groupIndex) => (
-        <div key={groupIndex} className="flex items-center">
-          {groupIndex > 0 && (
-            <Separator
-              orientation="vertical"
-              className="mx-1 h-8 bg-border"
-            />
-          )}
-          <div className="flex flex-wrap gap-1">
-            {group.items.map((item, index) => {
-              if (item.type === "color-picker") {
-                return (
-                  <Popover key={index}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                          ${
-                            item.isActive()
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-muted text-muted-foreground"
-                          }`}
-                        title={item.title}
-                      >
-                        {item.icon}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-2 bg-card border-border">
-                      <div className="grid grid-cols-8 gap-1">
-                        {[
-                          "#ff0000",
-                          "#ff7700",
-                          "#ffdd00",
-                          "#00ff00",
-                          "#0000ff",
-                          "#8a2be2",
-                          "#ff00ff",
-                          "#ffffff",
-                          "#ff5555",
-                          "#ff9955",
-                          "#ffee55",
-                          "#55ff55",
-                          "#5555ff",
-                          "#9955ff",
-                          "#ff55ff",
-                          "#cccccc",
-                          "#aa0000",
-                          "#aa5500",
-                          "#aaaa00",
-                          "#00aa00",
-                          "#0000aa",
-                          "#5500aa",
-                          "#aa00aa",
-                          "#555555",
-                          "#550000",
-                          "#553300",
-                          "#555500",
-                          "#005500",
-                          "#000055",
-                          "#330055",
-                          "#550055",
-                          "#000000",
-                        ].map((color) => (
-                          <button
-                            key={color}
-                            className="w-6 h-6 rounded-md border border-border hover:scale-110 transition-transform"
-                            style={{ backgroundColor: color }}
-                            onClick={() => item.action(color)}
-                            title={color}
-                          />
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                );
-              }
-
-              if (item.type === "image") {
-                return (
-                  <Popover key={index}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9 hover:bg-muted text-muted-foreground"
-                        title={item.title}
-                      >
-                        {item.icon}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4 bg-card border-border">
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-muted-foreground">
-                          Insertar imagen
-                        </h3>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="image-url"
-                            className="text-xs text-muted-foreground"
-                          >
-                            URL de la imagen
-                          </Label>
-                          <Input
-                            id="image-url"
-                            placeholder="https://ejemplo.com/imagen.jpg"
-                            value={imageUrl}
-                            onChange={(e) => setImageUrl(e.target.value)}
-                            className="h-8 bg-muted border-border text-muted-foreground"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setImageUrl("")}
-                            className="h-8 text-muted-foreground hover:text-muted-foreground hover:bg-muted"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={addImage}
-                            disabled={!imageUrl}
-                            className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-                          >
-                            Insertar
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                );
-              }
-
-              if (item.type === "link") {
-                return (
-                  <Popover key={index}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                          ${
-                            editor.isActive("link")
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-muted text-muted-foreground"
-                          }`}
-                        title={item.title}
-                      >
-                        {item.icon}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4 bg-card border-border">
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-medium text-muted-foreground">
-                          {editor.isActive("link")
-                            ? "Editar enlace"
-                            : "Insertar enlace"}
-                        </h3>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="link-url"
-                            className="text-xs text-muted-foreground"
-                          >
-                            URL del enlace
-                          </Label>
-                          <Input
-                            id="link-url"
-                            placeholder="https://ejemplo.com"
-                            value={linkUrl}
-                            onChange={(e) => setLinkUrl(e.target.value)}
-                            className="h-8 bg-muted border-border text-muted-foreground"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          {editor.isActive("link") && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() =>
-                                editor.chain().focus().unsetLink().run()
-                              }
-                              className="h-8 bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              Eliminar
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setLinkUrl("")}
-                            className="h-8 text-muted-foreground hover:text-muted-foreground hover:bg-muted"
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={setLink}
-                            disabled={!linkUrl && !editor.isActive("link")}
-                            className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-                          >
-                            {editor.isActive("link")
-                              ? "Actualizar"
-                              : "Insertar"}
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                );
-              }
-
-              if (item.type === "table") {
-                return (
-                  <Popover key={index}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                          ${
-                            editor.isActive("table")
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-muted text-muted-foreground"
-                          }`}
-                        title={item.title}
-                      >
-                        {item.icon}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2 bg-card border-border">
-                      {editor.isActive("table") ? (
-                        <div className="grid grid-cols-2 gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().addColumnBefore().run()
-                            }
-                            className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                          >
-                            Añadir columna antes
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().addColumnAfter().run()
-                            }
-                            className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                          >
-                            Añadir columna después
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().deleteColumn().run()
-                            }
-                            className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                          >
-                            Eliminar columna
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().addRowBefore().run()
-                            }
-                            className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                          >
-                            Añadir fila antes
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().addRowAfter().run()
-                            }
-                            className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                          >
-                            Añadir fila después
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().deleteRow().run()
-                            }
-                            className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                          >
-                            Eliminar fila
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              editor.chain().focus().deleteTable().run()
-                            }
-                            className="h-8 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs col-span-2"
-                          >
-                            Eliminar tabla
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                            Selecciona el tamaño de la tabla
-                          </h3>
-                          <div 
-                            className="table-grid-selector"
-                            onMouseLeave={() => setHoveredCell({ row: 0, col: 0 })}
-                          >
-                            {Array.from({ length: 10 }, (_, rowIndex) => (
-                              Array.from({ length: 10 }, (_, colIndex) => (
-                                <div
-                                  key={`${rowIndex}-${colIndex}`}
-                                  className={`table-grid-cell ${
-                                    rowIndex <= hoveredCell.row && colIndex <= hoveredCell.col
-                                      ? "active"
-                                      : ""
-                                  }`}
-                                  onMouseEnter={() => setHoveredCell({ row: rowIndex, col: colIndex })}
-                                  onClick={() => {
-                                    const rows = rowIndex + 1;
-                                    const cols = colIndex + 1;
-                                    setTableSize({ rows, cols });
-                                    editor
-                                      .chain()
-                                      .focus()
-                                      .insertTable({ rows, cols, withHeaderRow: true })
-                                      .run();
-                                  }}
-                                />
-                              ))
-                            )).flat()}
-                          </div>
-                          <div className="table-grid-dimensions">
-                            {hoveredCell.row > 0 || hoveredCell.col > 0
-                              ? `${hoveredCell.row + 1} × ${hoveredCell.col + 1}`
-                              : `${tableSize.rows} × ${tableSize.cols}`}
-                          </div>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                );
-              }
-
-              return (
-                <Button
-                  key={index}
-                  variant="ghost"
-                  size="icon"
-                  onClick={item.action}
-                  disabled={item.disabled ? item.disabled() : false}
-                  className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                    ${
-                      item.isActive && item.isActive()
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-muted text-muted-foreground"
-                    }
-                    ${
-                      item.disabled && item.disabled()
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }
-                  `}
-                  title={item.title}
-                >
-                  {item.icon}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const TiptapEditor = ({
-  content,
-  onChange,
-  onCursorUpdate,
-  cursors,
-  placeholder = "Empieza a escribir...",
-}) => {
-  const { data: session } = useSession();
-
-  const editor = useEditor(
-    {
-      extensions: [
-        StarterKit.configure({
-          heading: {
-            levels: [1, 2, 3],
-          },
-          codeBlock: {
-            HTMLAttributes: {
-              class:
-                "bg-gray-900 rounded-md p-4 font-mono text-sm my-4 overflow-x-auto",
-            },
-          },
-        }),
-        Underline,
-        TextAlign.configure({
-          types: ["heading", "paragraph"],
-        }),
-        Highlight.configure({
-          multicolor: true,
-        }),
-        Image,
-        Link.configure({
-          openOnClick: true,
-          HTMLAttributes: {
-            class:
-              "text-white hover:text-gray-300 underline decoration-gray-400/30 underline-offset-2 transition-colors",
-          },
-        }),
-        Table.configure({
-          resizable: true,
-          HTMLAttributes: {
-            class: "border-collapse table-auto w-full",
-          },
-        }),
-        TableRow.configure({
-          HTMLAttributes: {
-            class: "border-b border-border",
-          },
-        }),
-        TableHeader.configure({
-          HTMLAttributes: {
-            class:
-              "border-b-2 border-border bg-card/50 font-bold text-left p-2",
-          },
-        }),
-        TableCell.configure({
-          HTMLAttributes: {
-            class: "border border-border p-2",
-          },
-        }),
-        Color,
-        TextStyle,
-        Placeholder.configure({
-          placeholder,
-          emptyEditorClass: "is-editor-empty",
-        }),
-        HorizontalRule.configure({
-          HTMLAttributes: {
-            class: "border-t border-border my-6",
-          },
-        }),
-        CursorExtension.configure({
-          cursors,
-          onCursorUpdate,
-        }),
-      ],
-      content,
-      onUpdate: ({ editor }) => {
-        const json = editor.getJSON();
-        onChange(json);
-      },
-      editorProps: {
-        attributes: {
-          class:
-            "prose prose-invert prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none",
-        },
-      },
-    },
-    [cursors]
-  );
-
-  // Log cursor updates for debugging
-  useEffect(() => {
-    if (cursors.size > 0) {
-      console.log(
-        "Current cursors:",
-        Array.from(cursors.entries()).map(([id, data]) => ({
-          id,
-          name: data.userData?.name,
-          email: data.userData?.email,
-          position: data.cursor
-            ? `${data.cursor.from}-${data.cursor.to}`
-            : "unknown",
-        }))
-      );
+  const addImage = () => {
+    if (imageUrl) {
+      editor.chain().focus().setImage({ src: imageUrl }).run();
+      setImageUrl("");
     }
-  }, [cursors]);
+  };
 
-  // Update editor content when the content prop changes
-  useEffect(() => {
-    if (editor && content) {
-      // Only update if the content is different to avoid infinite loops
-      const currentContent = editor.getJSON();
-      const stringifiedCurrent = JSON.stringify(currentContent);
-      const stringifiedNew = JSON.stringify(content);
-
-      if (stringifiedCurrent !== stringifiedNew) {
-        console.log("Updating editor content:", content);
-        editor.commands.setContent(content);
-      }
+  const setLink = () => {
+    if (linkUrl) {
+      editor.chain().focus().setLink({ href: linkUrl }).run();
+      setLinkUrl("");
+    } else {
+      editor.chain().focus().unsetLink().run();
     }
-  }, [editor, content]);
-
-  if (!editor) {
-    return null;
-  }
+  };
 
   return (
     <div className="relative min-h-[500px] w-full max-w-screen mx-auto px-4">
@@ -1015,7 +611,9 @@ const TiptapEditor = ({
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => editor.chain().focus().unsetLink().run()}
+                  onClick={() =>
+                    editor.chain().focus().unsetLink().run()
+                  }
                   className="h-8 bg-red-600 hover:bg-red-700 text-white w-full mt-2"
                 >
                   Eliminar enlace
@@ -1028,12 +626,393 @@ const TiptapEditor = ({
 
       <div className="border border-border rounded-lg min-h-[500px] min-w-full h-[calc(100vh-8rem)] bg-card/50 backdrop-blur-sm shadow-xl">
         <div className="sticky top-0 bg-card border-b border-border z-10 backdrop-blur-sm">
-          <MenuBar editor={editor} />
+          <div className="tiptap-toolbar flex flex-wrap gap-1 p-2 bg-card border-b border-border rounded-t-lg backdrop-blur-sm">
+            {menuGroups.map((group, groupIndex) => (
+              <div key={groupIndex} className="flex items-center">
+                {groupIndex > 0 && (
+                  <Separator
+                    orientation="vertical"
+                    className="mx-1 h-8 bg-border"
+                  />
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {group.items.map((item, index) => {
+                    if (item.type === "color-picker") {
+                      return (
+                        <Popover key={index}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
+                                ${
+                                  item.isActive()
+                                    ? "bg-accent text-accent-foreground"
+                                    : "hover:bg-muted text-muted-foreground"
+                                }`}
+                              title={item.title}
+                            >
+                              {item.icon}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-2 bg-card border-border">
+                            <div className="grid grid-cols-8 gap-1">
+                              {[
+                                "#ff0000",
+                                "#ff7700",
+                                "#ffdd00",
+                                "#00ff00",
+                                "#0000ff",
+                                "#8a2be2",
+                                "#ff00ff",
+                                "#ffffff",
+                                "#ff5555",
+                                "#ff9955",
+                                "#ffee55",
+                                "#55ff55",
+                                "#5555ff",
+                                "#9955ff",
+                                "#ff55ff",
+                                "#cccccc",
+                                "#aa0000",
+                                "#aa5500",
+                                "#aaaa00",
+                                "#00aa00",
+                                "#0000aa",
+                                "#5500aa",
+                                "#aa00aa",
+                                "#555555",
+                                "#550000",
+                                "#553300",
+                                "#555500",
+                                "#005500",
+                                "#000055",
+                                "#330055",
+                                "#550055",
+                                "#000000",
+                              ].map((color) => (
+                                <button
+                                  key={color}
+                                  className="w-6 h-6 rounded-md border border-border hover:scale-110 transition-transform"
+                                  style={{ backgroundColor: color }}
+                                  onClick={() => item.action(color)}
+                                  title={color}
+                                />
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    }
+
+                    if (item.type === "image") {
+                      return (
+                        <Popover key={index}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9 hover:bg-muted text-muted-foreground"
+                              title={item.title}
+                            >
+                              {item.icon}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-4 bg-card border-border">
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-medium text-muted-foreground">
+                                Insertar imagen
+                              </h3>
+                              <div className="space-y-2">
+                                <Label
+                                  htmlFor="image-url"
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  URL de la imagen
+                                </Label>
+                                <Input
+                                  id="image-url"
+                                  placeholder="https://ejemplo.com/imagen.jpg"
+                                  value={imageUrl}
+                                  onChange={(e) => setImageUrl(e.target.value)}
+                                  className="h-8 bg-muted border-border text-muted-foreground"
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setImageUrl("")}
+                                  className="h-8 text-muted-foreground hover:text-muted-foreground hover:bg-muted"
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={addImage}
+                                  disabled={!imageUrl}
+                                  className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+                                >
+                                  Insertar
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    }
+
+                    if (item.type === "link") {
+                      return (
+                        <Popover key={index}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
+                                ${
+                                  editor.isActive("link")
+                                    ? "bg-accent text-accent-foreground"
+                                    : "hover:bg-muted text-muted-foreground"
+                                }`}
+                              title={item.title}
+                            >
+                              {item.icon}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-4 bg-card border-border">
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-medium text-muted-foreground">
+                                {editor.isActive("link")
+                                  ? "Editar enlace"
+                                  : "Insertar enlace"}
+                              </h3>
+                              <div className="space-y-2">
+                                <Label
+                                  htmlFor="link-url"
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  URL del enlace
+                                </Label>
+                                <Input
+                                  id="link-url"
+                                  placeholder="https://ejemplo.com"
+                                  value={linkUrl}
+                                  onChange={(e) => setLinkUrl(e.target.value)}
+                                  className="h-8 bg-muted border-border text-muted-foreground"
+                                />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                {editor.isActive("link") && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() =>
+                                      editor.chain().focus().unsetLink().run()
+                                    }
+                                    className="h-8 bg-red-600 hover:bg-red-700 text-white"
+                                  >
+                                    Eliminar
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setLinkUrl("")}
+                                  className="h-8 text-muted-foreground hover:text-muted-foreground hover:bg-muted"
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={setLink}
+                                  disabled={!linkUrl && !editor.isActive("link")}
+                                  className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+                                >
+                                  {editor.isActive("link")
+                                    ? "Actualizar"
+                                    : "Insertar"}
+                                </Button>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    }
+
+                    if (item.type === "table") {
+                      return (
+                        <Popover key={index}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
+                                ${
+                                  editor.isActive("table")
+                                    ? "bg-accent text-accent-foreground"
+                                    : "hover:bg-muted text-muted-foreground"
+                                }`}
+                              title={item.title}
+                            >
+                              {item.icon}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-2 bg-card border-border">
+                            {editor.isActive("table") ? (
+                              <div className="grid grid-cols-2 gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().addColumnBefore().run()
+                                  }
+                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
+                                >
+                                  Añadir columna antes
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().addColumnAfter().run()
+                                  }
+                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
+                                >
+                                  Añadir columna después
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().deleteColumn().run()
+                                  }
+                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
+                                >
+                                  Eliminar columna
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().addRowBefore().run()
+                                  }
+                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
+                                >
+                                  Añadir fila antes
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().addRowAfter().run()
+                                  }
+                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
+                                >
+                                  Añadir fila después
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().deleteRow().run()
+                                  }
+                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
+                                >
+                                  Eliminar fila
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    editor.chain().focus().deleteTable().run()
+                                  }
+                                  className="h-8 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs col-span-2"
+                                >
+                                  Eliminar tabla
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                                  Selecciona el tamaño de la tabla
+                                </h3>
+                                <div className="space-y-2">
+                                  <div 
+                                    className="table-grid-selector"
+                                    onMouseLeave={() => setHoveredCell({ row: 0, col: 0 })}
+                                  >
+                                    {Array.from({ length: 10 }, (_, rowIndex) => (
+                                      Array.from({ length: 10 }, (_, colIndex) => (
+                                        <div
+                                          key={`${rowIndex}-${colIndex}`}
+                                          className={`table-grid-cell ${
+                                            rowIndex <= hoveredCell.row && colIndex <= hoveredCell.col
+                                              ? "active"
+                                              : ""
+                                          }`}
+                                          onMouseEnter={() => setHoveredCell({ row: rowIndex, col: colIndex })}
+                                          onClick={() => {
+                                            const rows = rowIndex + 1;
+                                            const cols = colIndex + 1;
+                                            setTableSize({ rows, cols });
+                                            editor
+                                              .chain()
+                                              .focus()
+                                              .insertTable({ rows, cols, withHeaderRow: true })
+                                              .run();
+                                          }}
+                                        />
+                                      ))
+                                    )).flat()}
+                                  </div>
+                                  <div className="table-grid-dimensions">
+                                    {hoveredCell.row > 0 || hoveredCell.col > 0
+                                      ? `${hoveredCell.row + 1} × ${hoveredCell.col + 1}`
+                                      : `${tableSize.rows} × ${tableSize.cols}`}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    }
+
+                    return (
+                      <Button
+                        key={index}
+                        variant="ghost"
+                        size="icon"
+                        onClick={item.action}
+                        disabled={item.disabled ? item.disabled() : false}
+                        className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
+                          ${
+                            item.isActive && item.isActive()
+                              ? "bg-accent text-accent-foreground"
+                              : "hover:bg-muted text-muted-foreground"
+                          }
+                          ${
+                            item.disabled && item.disabled()
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }
+                        `}
+                        title={item.title}
+                      >
+                        {item.icon}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="relative overflow-y-auto h-[calc(100%-3rem)]">
           <EditorContent editor={editor} className="h-full" />
           <div className="absolute top-2 right-2 flex gap-1">
-            {Array.from(cursors.entries()).map(([userId, { userData }]) => {
+            {Array.from(localCursors.entries()).map(([userId, { userData }]) => {
               if (userData?.email === session?.user?.email) return null;
               const hue =
                 Math.abs(

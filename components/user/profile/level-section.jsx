@@ -15,10 +15,15 @@ import {
 export function LevelSection({ userStats }) {
   if (!userStats) return null;
 
-  const level = userStats.level || 1;
-  const experience = userStats.experience || 0;
-  const experienceToNextLevel = userStats.experienceToNextLevel || 100;
-  const totalExperience = userStats.totalExperience || 0;
+  const level = userStats?.level || 1;
+  const experience = userStats?.experience || 0;
+  const experienceToNextLevel = userStats?.experienceToNextLevel || 100;
+  const totalExperience = userStats?.totalExperience || 0;
+  const dailyStreak = userStats?.dailyStreak || 0;
+  const totalActiveDays = userStats?.totalActiveDays || 0;
+  const unlockedAchievements = userStats?.unlockedAchievements || [];
+  const totalAchievements = userStats?.totalAchievements || 0;
+  const studySessionsCompleted = userStats?.studySessionsCompleted || 0;
 
   const progress = (experience / experienceToNextLevel) * 100;
 

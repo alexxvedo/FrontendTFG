@@ -20,6 +20,7 @@ import {
   Brain,
   Star,
   Flame,
+  Layers,
 } from "lucide-react";
 import { useApi } from "@/lib/api";
 
@@ -40,71 +41,216 @@ export function ActivitySection({ user }) {
     daysActive: 0,
     heatmap: [],
   });
+  const [allTimeStats, setAllTimeStats] = useState({
+    studyTime: "0h 0m",
+    cardsStudied: 0,
+    accuracy: "0%",
+    daysActive: 0,
+    totalStudySessions: 0,
+  });
 
   useEffect(() => {
+    // Store references to API functions to avoid dependency issues
+    const getRecentActivity = api.userActivity.getRecentActivity;
+    const getWeeklyStats = api.userActivity.getWeeklyStats;
+    const getMonthlyStats = api.userActivity.getMonthlyStats;
+    
     const loadActivityData = async () => {
       try {
+        if (!user?.id) return;
+        
         const [activities, weekly, monthly] = await Promise.all([
-          api.userActivity.getRecentActivity(user.id),
-          api.userActivity.getWeeklyStats(user.id),
-          api.userActivity.getMonthlyStats(user.id),
+          getRecentActivity(user.id),
+          getWeeklyStats(user.id),
+          getMonthlyStats(user.id),
         ]);
 
-        setRecentActivities(
-          activities.map((activity) => {
-            let icon, color;
-            switch (activity.type) {
-              case "study":
-                icon = Brain;
-                color = "text-blue-400";
-                break;
-              case "achievement":
-                icon = Trophy;
-                color = "text-yellow-400";
-                break;
-              case "streak":
-                icon = Flame;
-                color = "text-orange-400";
-                break;
-              default:
-                icon = BookOpen;
-                color = "text-purple-400";
+        // Process activity data - Group by collection and type
+        const processedActivities = [];
+        const studySessionsByCollection = {};
+        
+        if (Array.isArray(activities)) {
+          // First pass: group study sessions by collection and date
+          activities.forEach(activity => {
+            // Skip individual flashcard activities completely
+            if (activity.type === "study") {
+              // Extract collection info
+              const collectionId = activity.collectionId || 'unknown';
+              const collectionName = activity.collectionName || 'Collection';
+              const dateKey = activity.timestamp ? activity.timestamp.split('T')[0] : new Date().toISOString().split('T')[0];
+              
+              // Create a unique key for this collection+date combination
+              const key = `${collectionId}-${dateKey}`;
+              
+              // If we don't have a session for this collection+date yet, create one
+              if (!studySessionsByCollection[key]) {
+                studySessionsByCollection[key] = {
+                  type: "study",
+                  title: `Study Session: ${collectionName}`,
+                  description: `Studied flashcards in ${collectionName}`,
+                  timestamp: activity.timestamp,
+                  time: activity.time || '1h ago',
+                  stats: {
+                    studyTimeInSeconds: 0,
+                    cardsStudied: 0,
+                    accuracy: 0
+                  },
+                  collectionId,
+                  collectionName
+                };
+              }
+              
+              // Accumulate stats
+              if (activity.stats) {
+                studySessionsByCollection[key].stats.studyTimeInSeconds += (activity.stats.studyTimeInSeconds || 0);
+                studySessionsByCollection[key].stats.cardsStudied = (studySessionsByCollection[key].stats.cardsStudied || 0) + 1;
+              }
+            } else if (activity.type === "achievement" || activity.type === "streak") {
+              // Non-study activities like achievements and streaks pass through
+              processedActivities.push(activity);
             }
-            return { ...activity, icon, color };
-          })
-        );
+          });
+          
+          // Add the grouped study sessions to processed activities
+          Object.values(studySessionsByCollection).forEach(session => {
+            processedActivities.push(session);
+          });
+          
+          // Sort by timestamp (newest first)
+          processedActivities.sort((a, b) => {
+            return new Date(b.timestamp) - new Date(a.timestamp);
+          });
+        }
+        
+        // Add icons and colors
+        processedActivities.forEach(activity => {
+          // Set icon based on type
+          if (activity.type === "study") {
+            // Generate a consistent color based on collection ID
+            const collectionId = activity.collectionId || 'default';
+            const colorOptions = [
+              { name: "blue", textClass: "text-blue-400", bgClass: "bg-blue-400/10" },
+              { name: "purple", textClass: "text-purple-400", bgClass: "bg-purple-400/10" },
+              { name: "pink", textClass: "text-pink-400", bgClass: "bg-pink-400/10" },
+              { name: "indigo", textClass: "text-indigo-400", bgClass: "bg-indigo-400/10" },
+              { name: "cyan", textClass: "text-cyan-400", bgClass: "bg-cyan-400/10" },
+            ];
+            
+            // Use a hash function to pick a consistent color for each collection
+            const hashCode = str => {
+              let hash = 0;
+              for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+              }
+              return Math.abs(hash);
+            };
+            
+            const colorIndex = hashCode(collectionId) % colorOptions.length;
+            const colorOption = colorOptions[colorIndex];
+            
+            // Update title to include collection name
+            if (activity.collectionName) {
+              activity.title = `Study Session: ${activity.collectionName}`;
+              activity.description = `Studied flashcards in ${activity.collectionName}`;
+            }
+            
+            activity.icon = <BookOpen className={`h-5 w-5 ${colorOption.textClass}`} />;
+            activity.color = colorOption.name;
+            activity.bgColorClass = colorOption.bgClass;
+            activity.textColorClass = colorOption.textClass;
+          } else if (activity.type === "achievement") {
+            activity.icon = <Trophy className="h-5 w-5 text-yellow-400" />;
+            activity.color = "yellow";
+            activity.bgColorClass = "bg-yellow-400/10";
+            activity.textColorClass = "text-yellow-400";
+          } else if (activity.type === "streak") {
+            activity.icon = <Flame className="h-5 w-5 text-orange-400" />;
+            activity.color = "orange";
+            activity.bgColorClass = "bg-orange-400/10";
+            activity.textColorClass = "text-orange-400";
+          } else {
+            activity.icon = <Clock className="h-5 w-5 text-gray-400" />;
+            activity.color = "gray";
+            activity.bgColorClass = "bg-gray-400/10";
+            activity.textColorClass = "text-gray-400";
+          }
+        });
 
-        setWeeklyStats(weekly);
-        setMonthlyStats(monthly);
+        setRecentActivities(processedActivities);
+
+        // Process weekly stats
+        const processedWeekly = weekly || {
+          studyTime: "0h 0m",
+          cardsStudied: 0,
+          accuracy: "0%",
+          daysActive: 0,
+          heatmap: [],
+        };
+        setWeeklyStats(processedWeekly);
+
+        // Process monthly stats
+        const processedMonthly = monthly || {
+          studyTime: "0h 0m",
+          cardsStudied: 0,
+          accuracy: "0%",
+          daysActive: 0,
+          heatmap: [],
+        };
+        setMonthlyStats(processedMonthly);
+
+        // Calculate all-time stats
+        // This would ideally come from the API, but we'll calculate it here for now
+        const totalStudySessions = Object.keys(studySessionsByCollection).length;
+        const allTimeActiveSet = new Set();
+        
+        // Combine active days from weekly and monthly
+        if (processedWeekly.heatmap) {
+          processedWeekly.heatmap.forEach(day => {
+            if (day.minutesStudied > 0) {
+              allTimeActiveSet.add(day.day);
+            }
+          });
+        }
+        
+        if (processedMonthly.heatmap) {
+          processedMonthly.heatmap.forEach(day => {
+            if (day.minutesStudied > 0) {
+              allTimeActiveSet.add(`${day.day}-${day.dayOfMonth}`);
+            }
+          });
+        }
+        
+        // Create all-time stats object
+        setAllTimeStats({
+          studyTime: processedMonthly.studyTime || "0h 0m",
+          cardsStudied: processedMonthly.cardsStudied || 0,
+          accuracy: processedMonthly.accuracy || "0%",
+          daysActive: allTimeActiveSet.size,
+          totalStudySessions,
+        });
       } catch (error) {
         console.error("Error loading activity data:", error);
       }
     };
 
-    if (user?.id) {
-      loadActivityData();
-    }
+    loadActivityData();
+    
+    // Only depend on user.id to prevent infinite loops
   }, [user?.id]);
 
-  const renderHeatmap = (stats, isMonthly = false) => {
-    if (!stats.heatmap) return null;
-
-    const heatmap = isMonthly
-      ? Array.from({ length: Math.ceil(stats.heatmap.length / 7) }, (_, i) =>
-          stats.heatmap.slice(i * 7, (i + 1) * 7)
-        )
-      : [stats.heatmap];
-
-    return (
-      <div className="space-y-2">
-        {heatmap.map((week, weekIndex) => (
-          <div key={weekIndex} className="flex justify-between gap-2">
-            {week.map((day, dayIndex) => (
-              <HoverCard key={dayIndex} openDelay={100} closeDelay={100}>
+  // Function to render the heatmap
+  const renderHeatmap = (stats, isMonthly = false) => (
+    <div className="space-y-2">
+      {[0, 1, 2, 3].map((week) => (
+        <div key={week} className="flex space-x-2">
+          {stats.heatmap
+            .slice(week * 7, week * 7 + 7)
+            .map((day, index) => (
+              <HoverCard key={index} openDelay={200} closeDelay={100}>
                 <HoverCardTrigger asChild>
-                  <div className="flex-1 text-center cursor-pointer">
+                  <div className="flex flex-col items-center space-y-1 cursor-pointer">
                     <div
-                      className={`h-8 rounded-md mb-1 ${
+                      className={`h-8 w-8 rounded-md ${
                         day.intensity === 0
                           ? "bg-zinc-800"
                           : day.intensity === 1
@@ -191,13 +337,13 @@ export function ActivitySection({ user }) {
                 </Portal>
               </HoverCard>
             ))}
-          </div>
-        ))}
-      </div>
-    );
-  };
+        </div>
+      ))}
+    </div>
+  );
 
-  const renderStats = (stats) => (
+  // Function to render stats
+  const renderStats = (stats, isAllTime = false) => (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
@@ -226,104 +372,141 @@ export function ActivitySection({ user }) {
           <span className="text-sm text-gray-400">Days Active</span>
         </div>
         <p className="text-xl font-bold text-white">
-          {stats.daysActive}/{stats === weeklyStats ? "7" : "30"}
+          {stats.daysActive}{isAllTime ? "" : `/${stats === weeklyStats ? "7" : "30"}`}
         </p>
       </div>
+      {isAllTime && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-purple-400" />
+            <span className="text-sm text-gray-400">Study Sessions</span>
+          </div>
+          <p className="text-xl font-bold text-white">
+            {stats.totalStudySessions}
+          </p>
+        </div>
+      )}
     </div>
   );
 
+  // Component to render a single activity item
+  function ActivityItem({ activity }) {
+    // Default color classes if not provided
+    const bgColorClass = activity.bgColorClass || `bg-${activity.color}-500/10`;
+    const textColorClass = activity.textColorClass || `text-${activity.color}-400`;
+    
+    return (
+      <div className="flex items-start space-x-4 p-4 rounded-lg bg-zinc-800/50 hover:bg-zinc-800/80 transition-colors">
+        <div className={`p-2 rounded-full ${bgColorClass}`}>
+          {typeof activity.icon === 'function' 
+            ? <activity.icon className={`h-5 w-5 ${textColorClass}`} />
+            : activity.icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between">
+            <p className="text-sm font-medium text-white truncate">
+              {activity.title}
+            </p>
+            <span className="text-xs text-gray-400">{activity.time}</span>
+          </div>
+          <p className="text-sm text-gray-400 mt-1">{activity.description}</p>
+
+          {activity.stats && (
+            <div className="flex items-center mt-2 space-x-4">
+              {activity.stats.studyTimeInSeconds > 0 && (
+                <div className="flex items-center space-x-1">
+                  <Clock className="h-3 w-3 text-gray-500" />
+                  <span className="text-xs text-gray-500">
+                    {Math.floor(activity.stats.studyTimeInSeconds / 60)}m
+                  </span>
+                </div>
+              )}
+
+              {activity.stats.cardsStudied > 0 && (
+                <div className="flex items-center space-x-1">
+                  <Layers className="h-3 w-3 text-gray-500" />
+                  <span className="text-xs text-gray-500">
+                    {activity.stats.cardsStudied} cards
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      {/* Overview */}
-      <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm p-6">
-        <Tabs defaultValue="weekly" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-purple-400" />
-              Activity Overview
-            </h3>
-            <TabsList className="bg-zinc-900/50">
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="weekly" className="space-y-6">
-            {renderStats(weeklyStats)}
-            <div className="mt-6">
-              <h4 className="text-sm font-medium text-gray-400 mb-3">
-                Weekly Activity
-              </h4>
-              {renderHeatmap(weeklyStats)}
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Recent Activity</h3>
+        <div className="space-y-3">
+          {recentActivities.length === 0 ? (
+            <div className="p-4 rounded-lg bg-zinc-800/50 text-center">
+              <p className="text-gray-400">No recent activity</p>
             </div>
-          </TabsContent>
-
-          <TabsContent value="monthly" className="space-y-6">
-            {renderStats(monthlyStats)}
-            <div className="mt-6">
-              <h4 className="text-sm font-medium text-gray-400 mb-3">
-                Monthly Activity
-              </h4>
-              {renderHeatmap(monthlyStats, true)}
-            </div>
-          </TabsContent>
-        </Tabs>
+          ) : (
+            recentActivities.slice(0, 5).map((activity, index) => (
+              <ActivityItem key={index} activity={activity} />
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Recent Activity */}
       <div>
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-          <Clock className="h-5 w-5 text-blue-400" />
-          Recent Activity
-        </h3>
-        <div className="space-y-4">
-          {recentActivities.map((activity, index) => (
-            <div
-              key={index}
-              className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm hover:bg-zinc-800/70 transition-colors"
+        <Tabs defaultValue="weekly" className="w-full">
+          <TabsList className="w-full bg-zinc-800 p-1">
+            <TabsTrigger
+              value="weekly"
+              className="flex-1 data-[state=active]:bg-blue-900/20"
             >
-              <div className="flex items-start gap-4">
-                <div
-                  className={`h-10 w-10 rounded-lg bg-zinc-700/50 flex items-center justify-center`}
-                >
-                  <activity.icon className={`h-5 w-5 ${activity.color}`} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-medium text-white">
-                        {activity.title}
-                      </h4>
-                      <p className="text-sm text-gray-400">
-                        {activity.description}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {activity.time}
-                    </span>
-                  </div>
-                  {activity.type === "study" && activity.stats && (
-                    <div className="mt-3 flex gap-4">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-400">
-                          {Math.round(activity.stats.studyTimeInSeconds / 60)}
-                          min
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Target className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-400">
-                          {activity.stats.result}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+              Weekly
+            </TabsTrigger>
+            <TabsTrigger
+              value="monthly"
+              className="flex-1 data-[state=active]:bg-purple-900/20"
+            >
+              Monthly
+            </TabsTrigger>
+            <TabsTrigger
+              value="alltime"
+              className="flex-1 data-[state=active]:bg-pink-900/20"
+            >
+              All Time
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-6">
+            <TabsContent value="weekly" className="space-y-6">
+              {renderStats(weeklyStats)}
+              <div>
+                <h4 className="text-md font-medium text-white mb-4">Weekly Activity</h4>
+                {renderHeatmap(weeklyStats)}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="monthly" className="space-y-6">
+              {renderStats(monthlyStats)}
+              <div>
+                <h4 className="text-md font-medium text-white mb-4">Monthly Activity</h4>
+                {renderHeatmap(monthlyStats, true)}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="alltime" className="space-y-6">
+              {renderStats(allTimeStats, true)}
+              <div>
+                <h4 className="text-md font-medium text-white mb-4">All Time Statistics</h4>
+                <div className="p-4 rounded-lg bg-zinc-800/50">
+                  <p className="text-gray-400">
+                    Your lifetime statistics show your progress since you started using the platform.
+                  </p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );

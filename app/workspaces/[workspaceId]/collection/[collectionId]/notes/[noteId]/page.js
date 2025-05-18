@@ -26,13 +26,19 @@ export default function NotePage() {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const { users, cursors, updateCursor, updateContent } = useNoteUsers(
+  const { users, cursors, updateCursor, updateContent, isReady } = useNoteUsers(
     workspaceId,
     noteId,
     (newContent) => {
       setContent(newContent);
     }
   );
+
+  useEffect(() => {
+    console.log("Estado de cursores:", cursors);
+    console.log("Usuarios en la nota:", users);
+    console.log("Socket listo:", isReady);
+  }, [cursors, users, isReady]);
 
   useEffect(() => {
     const loadNote = async () => {

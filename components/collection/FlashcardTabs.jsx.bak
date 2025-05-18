@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import FlashcardEditor from "@/components/flashcards/FlashcardEditor";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -148,35 +147,17 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
               <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-600/5 dark:bg-blue-600/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               <div className="absolute bottom-10 -left-20 w-40 h-40 bg-purple-600/5 dark:bg-purple-600/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100" />
 
-              {/* Buttons container - only visible on hover */}
-              <div className="absolute top-3 right-3 flex space-x-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                {/* Edit button - only visible if canEdit is true */}
-                {canEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFlashcardToEdit(flashcard);
-                      setIsEditorOpen(true);
-                    }}
-                    className="p-1.5 rounded-full bg-white/10 dark:bg-blue-500/20 hover:bg-white/20 dark:hover:bg-blue-500/30 text-zinc-600 dark:text-blue-400 transition-colors"
-                    aria-label="Editar tarjeta"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                )}
-                
-                {/* Expand button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedFlashcard(flashcard);
-                  }}
-                  className="p-1.5 rounded-full bg-white/10 dark:bg-zinc-800/50 hover:bg-white/20 dark:hover:bg-zinc-700/70 text-zinc-600 dark:text-zinc-300 transition-colors"
-                  aria-label="Expandir tarjeta"
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
-              </div>
+              {/* Expand button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedFlashcard(flashcard);
+                }}
+                className="absolute top-3 right-3 p-1.5 rounded-full bg-white/10 dark:bg-zinc-800/50 hover:bg-white/20 dark:hover:bg-zinc-700/70 text-zinc-600 dark:text-zinc-300 transition-colors z-10"
+                aria-label="Expandir tarjeta"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
 
               {/* Gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-pink-900/10 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -726,20 +707,6 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Editor de flashcards */}
-      {canEdit && (
-        <FlashcardEditor
-          open={isEditorOpen}
-          onOpenChange={setIsEditorOpen}
-          collection={collection}
-          flashcardToEdit={flashcardToEdit}
-          onFlashcardAdded={() => {
-            // Recargar la colección después de editar una flashcard
-            setFlashcardToEdit(null);
-          }}
-        />
-      )}
     </>
   );
 }

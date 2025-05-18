@@ -15,7 +15,7 @@ body {
   }
 }
 
-/* Animaciones personalizadas */
+/* Animaciones personalizadas para efectos tipo GTA VI */
 @keyframes float {
   0% {
     transform: translateY(0) translateX(0);
@@ -30,6 +30,84 @@ body {
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-15px) translateX(10px);
+  }
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 10s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s infinite;
+}
+
+/* Efecto de cuadrícula para fondo cyberpunk */
+.bg-grid-pattern {
+  background-size: 50px 50px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Efecto de ruido para textura */
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Efecto de brillo para botones */
+.shadow-glow {
+  box-shadow: 0 0 15px rgba(79, 70, 229, 0.5), 0 0 30px rgba(79, 70, 229, 0.3);
+}
+
+/* Estilos para la barra de navegación con scroll */
+.nav-scrolled {
+  background-color: rgba(10, 10, 15, 0.8);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-solid {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Estilos para secciones con efecto de pinning */
+.section-content {
+  opacity: 0;
+  transform: translateY(50px) scale(0.95);
+  transition: opacity 1s ease, transform 1s ease;
 }
 
 @layer base {
@@ -459,6 +537,7 @@ pre::-webkit-scrollbar-thumb {
   color: hsl(var(--accent-foreground));
   -webkit-appearance: none;
   -moz-appearance: none;
+  appearance: none;
   width: 70px;
   font-size: 14px;
   text-overflow: ellipsis;
@@ -881,6 +960,77 @@ tbody tr:hover {
 .menu-item.active {
   background-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
+}
+
+/* Estilos para cursores remotos */
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.remote-cursor {
+  position: relative;
+  width: 2px;
+  height: 1.2em;
+  background-color: currentColor;
+  display: inline-block;
+  vertical-align: text-bottom;
+  animation: blink 1s infinite;
+  z-index: 10;
+}
+
+.user-selection {
+  border-radius: 2px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Estilos adicionales para mejorar la visibilidad de los cursores */
+.ProseMirror .remote-cursor {
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* Estilos para la tabla en el editor */
+.table-grid-selector {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  width: 200px;
+  margin-bottom: 8px;
+}
+
+.table-grid-cell {
+  width: 18px;
+  height: 18px;
+  background-color: hsl(var(--muted));
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s ease-in-out;
+}
+
+.table-grid-cell.active {
+  background-color: hsl(var(--primary));
+}
+
+.table-grid-dimensions {
+  text-align: center;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 /* Sidebar menu hover styles for both light and dark themes */

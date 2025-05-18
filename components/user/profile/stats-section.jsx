@@ -24,30 +24,43 @@ export function StatsSection({ userStats }) {
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
   };
+  
+  // Safely access properties with fallbacks
+  const studySeconds = userStats?.studySeconds || 0;
+  const createdFlashcards = userStats?.createdFlashcards || 0;
+  const studiedFlashcards = userStats?.studiedFlashcards || 0;
+  const dailyStreak = userStats?.dailyStreak || 0;
+  const unlockedAchievements = userStats?.unlockedAchievements || [];
+  const totalAchievements = userStats?.totalAchievements || 0;
+  const averageAccuracy = userStats?.averageAccuracy || 0;
+  const activeCollections = userStats?.activeCollections || 0;
+  const totalCollections = userStats?.totalCollections || 0;
+  const activeWorkspaces = userStats?.activeWorkspaces || 0;
+  const totalWorkspaces = userStats?.totalWorkspaces || 0;
 
   const mainStats = [
     {
       icon: Clock,
       label: "Study Time",
-      value: formatTime(userStats.studySeconds || 0),
+      value: formatTime(studySeconds),
       color: "from-blue-400 to-cyan-400",
     },
     {
       icon: BookOpen,
       label: "Created Cards",
-      value: userStats.createdFlashcards || 0,
+      value: createdFlashcards,
       color: "from-purple-400 to-pink-400",
     },
     {
       icon: Brain,
       label: "Cards Studied",
-      value: userStats.studiedFlashcards || 0,
+      value: studiedFlashcards,
       color: "from-green-400 to-emerald-400",
     },
     {
       icon: Flame,
       label: "Day Streak",
-      value: userStats.dailyStreak || 0,
+      value: dailyStreak,
       color: "from-orange-400 to-red-400",
     },
   ];
@@ -56,25 +69,25 @@ export function StatsSection({ userStats }) {
     {
       icon: Trophy,
       label: "Achievements",
-      value: `${userStats.unlockedAchievements?.length || 0} / ${userStats.totalAchievements || 0}`,
+      value: `${unlockedAchievements.length} / ${totalAchievements}`,
       color: "from-yellow-400 to-amber-400",
     },
     {
       icon: Target,
       label: "Avg. Accuracy",
-      value: `${Math.round(userStats.averageAccuracy || 0)}%`,
+      value: `${Math.round(averageAccuracy)}%`,
       color: "from-red-400 to-rose-400",
     },
     {
       icon: Sparkles,
       label: "Collections",
-      value: `${userStats.activeCollections || 0} / ${userStats.totalCollections || 0}`,
+      value: `${activeCollections} / ${totalCollections}`,
       color: "from-indigo-400 to-violet-400",
     },
     {
       icon: Users,
       label: "Workspaces",
-      value: `${userStats.activeWorkspaces || 0} / ${userStats.totalWorkspaces || 0}`,
+      value: `${activeWorkspaces} / ${totalWorkspaces}`,
       color: "from-teal-400 to-emerald-400",
     },
   ];
@@ -83,33 +96,38 @@ export function StatsSection({ userStats }) {
     return Math.min((current / target) * 100, 100);
   };
 
+  // Get today's stats only for daily goals
+  const todayStudiedCards = userStats?.todayStudiedCards || 0;
+  const todayStudyMinutes = userStats?.todayStudyMinutes || 0;
+  const todayAccuracy = userStats?.todayAccuracy || 0;
+  
   const dailyGoals = [
     {
       icon: Brain,
-      label: "Study Cards",
-      current: userStats.studiedFlashcards || 0,
-      target: 50,
+      label: "Daily Cards",
+      current: todayStudiedCards,
+      target: 10, // More realistic daily target
       color: "from-blue-400 to-cyan-400",
     },
     {
       icon: Clock,
-      label: "Study Time",
-      current: Math.floor((userStats.studySeconds || 0) / 60),
-      target: 30,
+      label: "Daily Study Time",
+      current: todayStudyMinutes,
+      target: 15, // More realistic daily target (15 minutes)
       color: "from-purple-400 to-pink-400",
       format: (value) => `${value}min`,
     },
     {
       icon: Target,
-      label: "Accuracy",
-      current: Math.round(userStats.averageAccuracy || 0),
+      label: "Daily Accuracy",
+      current: Math.round(todayAccuracy),
       target: 100,
       color: "from-yellow-400 to-amber-400",
       format: (value) => `${value}%`,
     },
   ];
 
-  const bestSubjects = userStats.bestSubjects || [];
+  // No longer using best subjects
 
   return (
     <div className="space-y-8">
@@ -150,29 +168,7 @@ export function StatsSection({ userStats }) {
         </div>
       </div>
 
-      {/* Best Subjects */}
-      {bestSubjects.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm p-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-            <BarChart className="h-5 w-5 text-blue-400" />
-            Best Subjects
-          </h3>
-          <div className="space-y-4">
-            {bestSubjects.slice(0, 3).map((subject, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">{subject.name}</span>
-                  <span className="text-sm text-gray-400">{Math.round(subject.accuracy)}%</span>
-                </div>
-                <Progress
-                  value={subject.accuracy}
-                  className="h-2 bg-zinc-800"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Best Subjects section removed */}
 
       {/* Additional Stats */}
       <div>

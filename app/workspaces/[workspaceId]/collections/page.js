@@ -46,7 +46,7 @@ function CollectionsListWithSocket({
 }
 
 export default function CollectionsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const params = useParams();
   const router = useRouter();
   const api = useApi();
@@ -64,9 +64,13 @@ export default function CollectionsPage() {
 
   const [collections, setCollections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const fetchCollections = async () => {
+    if (!workspaceId || !userSession) return;
+    
     try {
+      setIsLoading(true);
       const response = await api.collections.listByWorkspace(workspaceId);
       setCollections(response.data);
     } catch (error) {
@@ -74,15 +78,18 @@ export default function CollectionsPage() {
       toast.error("Error loading collections");
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   };
 
-  // Cargar colecciones al montar
+  // Cargar colecciones solo cuando tenemos workspaceId y la sesión está lista
   useEffect(() => {
-    if (params.workspaceId) {
+    if (status === "loading") return;
+    
+    if (workspaceId && userSession && !hasLoaded) {
       fetchCollections();
     }
-  }, [params.workspaceId]);
+  }, [workspaceId, userSession, status, hasLoaded]);
 
   const handleCollectionClick = (collectionId) => {
     // Solo navegamos a la colección, el join se hará en la página de la colección
@@ -97,11 +104,34 @@ export default function CollectionsPage() {
     }
 
     try {
-      await api.collections.create(
+      // Crear la colección en el backend
+      const response = await api.collections.create(
         workspaceId,
         collectionData,
         userSession.email
       );
+      
+      // Obtener la colección creada del response
+      const createdCollection = response.data;
+      
+      if (createdCollection && createdCollection.id) {
+        // 1. Actualizar el CollectionStore que usa el sidebar
+        const addCollection = useCollectionStore.getState().addCollection;
+        addCollection({
+          id: createdCollection.id.toString(),
+          name: collectionData.name,
+          ...createdCollection
+        });
+        
+        // 2. Actualizar el SidebarStore para mantener consistencia
+        const addCollectionToWorkspace = useSidebarStore.getState().addCollectionToWorkspace;
+        addCollectionToWorkspace(workspaceId.toString(), {
+          id: createdCollection.id.toString(),
+          name: collectionData.name
+        });
+      }
+      
+      // Actualizar la lista de colecciones local
       await fetchCollections();
       toast.success("Collection created successfully");
     } catch (error) {
@@ -149,7 +179,14 @@ export default function CollectionsPage() {
 
   // Redirigir si el workspace de la URL no coincide con el activo
   useEffect(() => {
-    if (activeWorkspace && workspaceId !== activeWorkspace.id) {
+    // Si no hay workspace activo después de una eliminación, redirigir a la página principal
+    if (!activeWorkspace && workspaceId) {
+      router.push('/');
+      return;
+    }
+    
+    // Si hay un workspace activo pero no coincide con el de la URL, redirigir al correcto
+    if (activeWorkspace?.id && workspaceId && workspaceId !== activeWorkspace.id.toString()) {
       router.push(`/workspaces/${activeWorkspace.id}/collections`);
     }
   }, [activeWorkspace, workspaceId, router]);
@@ -180,7 +217,7 @@ export default function CollectionsPage() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !hasLoaded) {
     return (
       <div className="flex h-full w-full items-center justify-center min-h-screen bg-background dark:bg-[#0A0A0F]">
         <div className="flex flex-col items-center gap-4">
@@ -191,7 +228,7 @@ export default function CollectionsPage() {
     );
   }
 
-  if (!userSession) {
+  if (status === "loading" || !userSession) {
     return (
       <div className="flex h-full w-full items-center justify-center min-h-screen bg-background dark:bg-[#0A0A0F]">
         <div className="flex flex-col items-center gap-4">
