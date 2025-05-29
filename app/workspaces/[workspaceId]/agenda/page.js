@@ -45,11 +45,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
@@ -61,7 +56,6 @@ import {
   Clock,
   PlusIcon,
   AlertCircle,
-  PencilIcon,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -78,18 +72,6 @@ function DroppableColumn({ columnId, children }) {
   return (
     <div ref={setNodeRef} className="flex-1">
       {children}
-    </div>
-  );
-}
-
-function Task({ task }) {
-  return (
-    <div className="p-4 mb-3 bg-card hover:bg-accent/50 rounded-lg border shadow-sm transition-colors">
-      <div className="flex items-start gap-2">
-        <div className="flex-1">
-          <div className="font-medium">{task.title}</div>
-        </div>
-      </div>
     </div>
   );
 }

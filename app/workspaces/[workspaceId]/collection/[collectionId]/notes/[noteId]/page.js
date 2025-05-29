@@ -41,63 +41,173 @@ export default function NotePage() {
   }, [cursors, users, isReady]);
 
   useEffect(() => {
+    // Flag to prevent multiple loads
+    let isMounted = true;
+
     const loadNote = async () => {
       try {
         if (noteId === "new") {
-          setNote({ noteName: "Nueva nota", content: "" });
+          if (isMounted) {
+            setNote({ noteName: "Nueva nota", content: "" });
+            // Crear un documento vacío válido para Tiptap
+            const emptyDocument = {
+              type: "doc",
+              content: [{ type: "paragraph" }],
+            };
+            setContent(emptyDocument);
+          }
           return;
         }
 
-        const response = await api.notes.getNotes(collectionId);
+        // Extraer el workspaceId de la URL
+        const pathParts = window.location.pathname.split("/");
+        const urlWorkspaceId = pathParts.includes("workspaces")
+          ? pathParts[pathParts.indexOf("workspaces") + 1]
+          : workspaceId;
 
-        console.log("Notas cargadas:", response);
+        console.log("Cargando nota con:", {
+          workspaceId: urlWorkspaceId,
+          collectionId,
+          noteId,
+        });
 
-        const foundNote = response.find((note) => note.id === parseInt(noteId));
+        // Intentar obtener la nota directamente por su ID
+        const noteResponse = await api.notes.get(
+          urlWorkspaceId,
+          collectionId,
+          noteId
+        );
+        const foundNote = noteResponse.data;
+
+        if (!isMounted) return;
+
+        console.log("Nota cargada directamente:", foundNote);
+
         if (foundNote) {
           console.log("Nota encontrada:", foundNote);
           console.log("Tipo de content:", typeof foundNote.content);
-          
+
           setNote(foundNote);
-          try {
-            const parsedContent =
-              typeof foundNote.content === "string" && foundNote.content
-                ? JSON.parse(foundNote.content)
-                : foundNote.content || "";
-            console.log("Contenido parseado:", parsedContent);
-            setContent(parsedContent);
-          } catch (e) {
-            console.error("Error parsing note content:", e);
-            console.log("Contenido original:", foundNote.content);
-            // Si no podemos parsear el contenido, usamos un documento vacío pero válido para Tiptap
+
+          // Procesar el contenido para el editor Tiptap
+          if (!foundNote.content) {
+            // Si no hay contenido, usar un documento vacío
             const emptyDocument = {
               type: "doc",
-              content: [{ type: "paragraph" }]
+              content: [{ type: "paragraph" }],
             };
             setContent(emptyDocument);
+          } else if (typeof foundNote.content === "string") {
+            try {
+              // Intentar parsear como JSON primero
+              if (foundNote.content.trim().startsWith("{")) {
+                const parsedContent = JSON.parse(foundNote.content);
+                console.log("Contenido parseado como JSON:", parsedContent);
+                if (isMounted) {
+                  setContent(parsedContent);
+                }
+              } else {
+                // Si no es JSON, crear un documento Tiptap con el texto plano
+                console.log("Creando documento Tiptap con texto plano");
+                const textDocument = {
+                  type: "doc",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: foundNote.content }],
+                    },
+                  ],
+                };
+                if (isMounted) {
+                  setContent(textDocument);
+                }
+              }
+            } catch (e) {
+              console.error("Error procesando el contenido:", e);
+              // Si hay error al parsear, crear un documento con el texto original
+              const textDocument = {
+                type: "doc",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: foundNote.content }],
+                  },
+                ],
+              };
+              if (isMounted) {
+                setContent(textDocument);
+              }
+            }
+          } else if (
+            foundNote.content &&
+            typeof foundNote.content === "object"
+          ) {
+            // Si ya es un objeto, usarlo directamente
+            if (isMounted) {
+              setContent(foundNote.content);
+            }
           }
         }
       } catch (error) {
         console.error("Error loading note:", error);
-        toast.error("Error al cargar la nota");
+        if (isMounted) {
+          toast.error(
+            "Error al cargar la nota: " + (error.message || "Error desconocido")
+          );
+
+          // En caso de error, crear un documento vacío
+          const emptyDocument = {
+            type: "doc",
+            content: [{ type: "paragraph" }],
+          };
+          setContent(emptyDocument);
+        }
       }
     };
 
     loadNote();
-  }, [noteId, collectionId]);
+
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
+  }, [noteId, collectionId, workspaceId]);
 
   const handleSave = async () => {
     try {
-      console.log(JSON.stringify(content));
+      console.log("Guardando contenido:", content);
       setIsSaving(true);
-      await api.notes.update(collectionId, parseInt(noteId), {
+
+      // Extraer el workspaceId de la URL
+      const pathParts = window.location.pathname.split("/");
+      const urlWorkspaceId = pathParts.includes("workspaces")
+        ? pathParts[pathParts.indexOf("workspaces") + 1]
+        : workspaceId;
+
+      // Asegurarse de que el contenido sea un string JSON
+      const contentToSave =
+        typeof content === "object" ? JSON.stringify(content) : content;
+
+      console.log("Guardando nota con:", {
+        workspaceId: urlWorkspaceId,
+        collectionId,
+        noteId,
         noteName: note.noteName,
-        content: JSON.stringify(content),
+        contentLength: contentToSave.length,
       });
+
+      await api.notes.update(urlWorkspaceId, collectionId, parseInt(noteId), {
+        noteName: note.noteName,
+        content: contentToSave,
+      });
+
       toast.success("Nota guardada correctamente");
       //router.push(`/workspaces/${workspaceId}/collection/${collectionId}`);
     } catch (error) {
       console.error("Error saving note:", error);
-      toast.error("Error al guardar la nota");
+      toast.error(
+        "Error al guardar la nota: " + (error.message || "Error desconocido")
+      );
     } finally {
       setIsSaving(false);
     }

@@ -30,7 +30,7 @@ export default function StudyDialog({
     try {
       const studySession = await api.studySessions.create({
         collectionId: collectionId,
-        mode: studyMode === "FREE" ? "FREE" : "SPACED_REPETITION",
+        mode: studyMode === "normal" ? "FREE" : "SPACED_REPETITION",
         user: {
           email: user.email,
         },
@@ -45,7 +45,7 @@ export default function StudyDialog({
       console.error("Error:", error);
       toast.error(
         `Error al crear la sesión de ${
-          studyMode === "FREE" ? "práctica" : "repaso"
+          studyMode === "normal" ? "práctica" : "repaso espaciado"
         }`
       );
     }
@@ -56,10 +56,10 @@ export default function StudyDialog({
       <DialogContent className="sm:max-w-[425px] dark:bg-zinc-900/90 dark:border-zinc-800 backdrop-blur-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
-            {studyMode === "FREE" ? "Práctica Libre" : "Repaso Espaciado"}
+            {studyMode === "normal" ? "Práctica Libre" : "Repaso Espaciado"}
           </DialogTitle>
           <DialogDescription className="text-zinc-600 dark:text-zinc-400">
-            {studyMode === "FREE"
+            {studyMode === "normal"
               ? "Practica todas las tarjetas de la colección sin orden específico."
               : "Repasa las tarjetas que necesitan ser revisadas según el algoritmo de repetición espaciada."}
           </DialogDescription>
@@ -69,7 +69,7 @@ export default function StudyDialog({
             <Button
               onClick={handleStartStudySession}
               className={`w-full bg-gradient-to-r text-white ${
-                studyMode === "FREE"
+                studyMode === "normal"
                   ? "from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                   : "from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
               }`}

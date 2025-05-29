@@ -29,6 +29,8 @@ import {
   Clock,
 } from "lucide-react";
 
+import ResourcePreview from "@/components/collection/ResourcePreview";
+
 const formatFileSize = (bytes) => {
   if (!bytes) return "0 B";
   const k = 1024;
@@ -118,236 +120,9 @@ const canPreview = (fileType, fileName) => {
   return false;
 };
 
-// Componente de vista previa
-const ResourcePreview = ({
-  resource,
-  onClose,
-  api,
-  collectionId,
-  workspaceId,
-}) => {
-  const [previewData, setPreviewData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchPreview = async () => {
-      try {
-        setLoading(true);
-        const response = await api.resources.download(
-          workspaceId,
-          collectionId,
-          resource.id
-        );
-
-        if (!response || !response.data) {
-          throw new Error("La respuesta de la API es inválida o vacía");
-        }
-
-        // Convertir a URL para vista previa
-        const blob = new Blob([response.data], {
-          type: response.headers["content-type"] || "application/octet-stream",
-        });
-
-        const url = URL.createObjectURL(blob);
-        setPreviewData(url);
-      } catch (err) {
-        console.error("Error loading preview:", err);
-        setError("No se pudo cargar la vista previa");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (resource && canPreview(resource.type, resource.fileName)) {
-      fetchPreview();
-    } else {
-      setError("Este tipo de archivo no permite vista previa");
-      setLoading(false);
-    }
-
-    return () => {
-      // Limpiar URL al desmontar
-      if (previewData) {
-        URL.revokeObjectURL(previewData);
-      }
-    };
-  }, [resource, api, collectionId, workspaceId]);
-
-  const renderPreview = () => {
-    if (loading) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-spin h-10 w-10 border-4 border-blue-500 rounded-full border-t-transparent"></div>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-6">
-          <XCircle className="h-16 w-16 text-red-500 mb-4" />
-          <p className="text-lg font-medium text-zinc-800 dark:text-zinc-200">
-            {error}
-          </p>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-            Puedes descargar el archivo para verlo en tu dispositivo
-          </p>
-        </div>
-      );
-    }
-
-    if (!previewData) return null;
-
-    // Renderizar según el tipo de archivo
-    if (resource.type?.startsWith("image/")) {
-      return (
-        <div className="flex items-center justify-center h-full p-4">
-          <img
-            src={previewData}
-            alt={resource.fileName}
-            className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
-          />
-        </div>
-      );
-    }
-
-    if (
-      resource.type === "application/pdf" ||
-      resource.fileName?.endsWith(".pdf")
-    ) {
-      return (
-        <div className="h-full w-full">
-          <iframe
-            src={previewData}
-            className="w-full h-[70vh] rounded-lg"
-            title={resource.fileName}
-          />
-        </div>
-      );
-    }
-
-    if (resource.type?.startsWith("audio/")) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-8">
-          <Music className="h-16 w-16 text-blue-500 mb-6" />
-          <p className="text-lg font-medium text-zinc-800 dark:text-zinc-200 mb-4">
-            {resource.fileName}
-          </p>
-          <audio controls className="w-full max-w-md">
-            <source src={previewData} type={resource.type} />
-            Tu navegador no soporta la reproducción de audio
-          </audio>
-        </div>
-      );
-    }
-
-    if (resource.type?.startsWith("video/")) {
-      return (
-        <div className="flex items-center justify-center h-full p-4">
-          <video
-            controls
-            className="max-w-full max-h-[70vh] rounded-lg shadow-lg"
-          >
-            <source src={previewData} type={resource.type} />
-            Tu navegador no soporta la reproducción de video
-          </video>
-        </div>
-      );
-    }
-
-    // Para archivos de texto
-    if (
-      resource.type?.startsWith("text/") ||
-      ["txt", "md", "json", "csv"].includes(
-        resource.fileName?.split(".").pop()?.toLowerCase()
-      )
-    ) {
-      return (
-        <div className="p-4 h-full">
-          <div className="bg-white dark:bg-zinc-800 rounded-lg shadow-lg p-4 h-[70vh] overflow-auto">
-            <pre className="text-sm text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap">
-              {/* Aquí iría el contenido del texto, pero necesitaríamos convertir el blob a texto */}
-              {/* Esto se implementaría completamente con la API real */}
-              Vista previa de texto no disponible en esta versión
-            </pre>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-6">
-        <XCircle className="h-16 w-16 text-amber-500 mb-4" />
-        <p className="text-lg font-medium text-zinc-800 dark:text-zinc-200">
-          Vista previa no disponible
-        </p>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
-          Este tipo de archivo no permite vista previa en el navegador
-        </p>
-      </div>
-    );
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-white/5 dark:bg-zinc-900/20 backdrop-blur-sm border border-zinc-200/30 dark:border-zinc-800/30  shadow-xl shadow-purple-500/5 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white/5 dark:bg-zinc-900/20 backdrop-blur-sm border border-zinc-200/30 dark:border-zinc-800/30 p-6 shadow-purple-500/5 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-              {getFileIcon(resource.type, resource.fileName)}
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                {resource.fileName}
-              </h3>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {formatFileSize(resource.fileSize)}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() =>
-                api.resources.download(workspaceId, collectionId, resource.id)
-              }
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-              title="Descargar"
-            >
-              <Download className="h-5 w-5" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-              title="Cerrar"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Preview content */}
-        <div className="h-full">{renderPreview()}</div>
-      </motion.div>
-    </motion.div>
-  );
-};
-
 export default function CollectionResources({
   collection,
+  canEdit,
   onResourceUploaded,
 }) {
   const [isUploading, setIsUploading] = useState(false);
@@ -426,7 +201,7 @@ export default function CollectionResources({
 
       // Notificar al componente padre sobre los nuevos recursos
       if (onResourceUploaded && newResources.length > 0) {
-        onResourceUploaded(newResources);
+        onResourceUploaded();
       }
 
       toast.success("Archivos subidos correctamente");
@@ -607,177 +382,180 @@ export default function CollectionResources({
         </div>
       </motion.div>
 
-      {/* Lista de recursos */}
-      <div className="space-y-4">
-        {/* Encabezado de la lista */}
-        <div className="flex items-center justify-between px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b border-zinc-200 dark:border-zinc-800">
-          <span>Nombre</span>
-          <span>Tamaño</span>
-        </div>
+      {resources.length !== 0 && (
+        <div className="space-y-4">
+          {/* Encabezado de la lista */}
+          <div className="flex items-center justify-between px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b border-zinc-200 dark:border-zinc-800">
+            <span>Nombre</span>
+            <span>Tamaño</span>
+          </div>
 
-        {/* Recursos filtrados */}
-        <AnimatePresence>
-          {resources
-            .filter((resource) =>
-              resource.fileName
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase())
-            )
-            .sort((a, b) => {
-              if (sortBy === "name") {
-                return sortOrder === "asc"
-                  ? a.fileName.localeCompare(b.fileName)
-                  : b.fileName.localeCompare(a.fileName);
-              } else if (sortBy === "size") {
-                return sortOrder === "asc"
-                  ? a.fileSize - b.fileSize
-                  : b.fileSize - a.fileSize;
-              } else {
-                // Por fecha (usaríamos la fecha real si estuviera disponible)
-                return sortOrder === "asc" ? 1 : -1;
-              }
-            })
-            .map((resource) => (
-              <motion.div
-                key={`resource-container-${resource.id}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-                className="divide-y divide-zinc-200 dark:divide-zinc-800 rounded-xl bg-white/90 dark:bg-zinc-800/70 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="group flex items-center justify-between px-4 py-3 transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    {/* Icono basado en el tipo de archivo */}
-                    <div
-                      className={`rounded-lg p-2 ${
-                        resource.type?.startsWith("image/")
-                          ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500"
-                          : resource.type?.startsWith("video/")
-                          ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500"
-                          : resource.type?.startsWith("audio/")
-                          ? "bg-amber-50 dark:bg-amber-900/20 text-amber-500"
-                          : resource.fileName?.endsWith(".pdf")
-                          ? "bg-red-50 dark:bg-red-900/20 text-red-500"
-                          : resource.fileName?.endsWith(".zip") ||
-                            resource.fileName?.endsWith(".rar")
-                          ? "bg-purple-50 dark:bg-purple-900/20 text-purple-500"
-                          : resource.fileName?.endsWith(".doc") ||
-                            resource.fileName?.endsWith(".docx")
-                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-500"
-                          : resource.fileName?.endsWith(".xls") ||
-                            resource.fileName?.endsWith(".xlsx")
-                          ? "bg-green-50 dark:bg-green-900/20 text-green-500"
-                          : resource.fileName?.endsWith(".ppt") ||
-                            resource.fileName?.endsWith(".pptx")
-                          ? "bg-orange-50 dark:bg-orange-900/20 text-orange-500"
-                          : "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500"
-                      }`}
-                    >
-                      {getFileIcon(resource.type, resource.fileName)}
+          {/* Recursos filtrados */}
+          <AnimatePresence>
+            {resources
+              .filter((resource) =>
+                resource.fileName
+                  .toLowerCase()
+                  .includes(searchQuery.toLowerCase())
+              )
+              .sort((a, b) => {
+                if (sortBy === "name") {
+                  return sortOrder === "asc"
+                    ? a.fileName.localeCompare(b.fileName)
+                    : b.fileName.localeCompare(a.fileName);
+                } else if (sortBy === "size") {
+                  return sortOrder === "asc"
+                    ? a.fileSize - b.fileSize
+                    : b.fileSize - a.fileSize;
+                } else {
+                  // Por fecha (usaríamos la fecha real si estuviera disponible)
+                  return sortOrder === "asc" ? 1 : -1;
+                }
+              })
+              .map((resource) => (
+                <motion.div
+                  key={`resource-container-${resource.id}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="divide-y divide-zinc-200 dark:divide-zinc-800 rounded-xl bg-white/90 dark:bg-zinc-800/70 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="group flex items-center justify-between px-4 py-3 transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      {/* Icono basado en el tipo de archivo */}
+                      <div
+                        className={`rounded-lg p-2 ${
+                          resource.type?.startsWith("image/")
+                            ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500"
+                            : resource.type?.startsWith("video/")
+                            ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500"
+                            : resource.type?.startsWith("audio/")
+                            ? "bg-amber-50 dark:bg-amber-900/20 text-amber-500"
+                            : resource.fileName?.endsWith(".pdf")
+                            ? "bg-red-50 dark:bg-red-900/20 text-red-500"
+                            : resource.fileName?.endsWith(".zip") ||
+                              resource.fileName?.endsWith(".rar")
+                            ? "bg-purple-50 dark:bg-purple-900/20 text-purple-500"
+                            : resource.fileName?.endsWith(".doc") ||
+                              resource.fileName?.endsWith(".docx")
+                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-500"
+                            : resource.fileName?.endsWith(".xls") ||
+                              resource.fileName?.endsWith(".xlsx")
+                            ? "bg-green-50 dark:bg-green-900/20 text-green-500"
+                            : resource.fileName?.endsWith(".ppt") ||
+                              resource.fileName?.endsWith(".pptx")
+                            ? "bg-orange-50 dark:bg-orange-900/20 text-orange-500"
+                            : "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500"
+                        }`}
+                      >
+                        {getFileIcon(resource.type, resource.fileName)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {resource.fileName}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date().toLocaleDateString()}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date().toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                        {resource.fileName}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date().toLocaleDateString()}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {new Date().toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                        {formatFileSize(resource.fileSize)}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleDownload(resource.id)}
+                          className="rounded-lg p-2 text-zinc-500 hover:bg-blue-50 hover:text-blue-600 dark:text-zinc-400 dark:hover:bg-blue-900/30 dark:hover:text-blue-400"
+                          title="Descargar"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                        {canPreview(resource.type, resource.fileName) && (
+                          <button
+                            onClick={() => handlePreview(resource)}
+                            className="rounded-lg p-2 text-zinc-500 hover:bg-purple-50 hover:text-purple-600 dark:text-zinc-400 dark:hover:bg-purple-900/30 dark:hover:text-purple-400"
+                            title="Vista previa"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteResource(resource.id)}
+                          className="rounded-lg p-2 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
+                </motion.div>
+              ))}
+          </AnimatePresence>
 
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {formatFileSize(resource.fileSize)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleDownload(resource.id)}
-                        className="rounded-lg p-2 text-zinc-500 hover:bg-blue-50 hover:text-blue-600 dark:text-zinc-400 dark:hover:bg-blue-900/30 dark:hover:text-blue-400"
-                        title="Descargar"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                      {canPreview(resource.type, resource.fileName) && (
-                        <button
-                          onClick={() => handlePreview(resource)}
-                          className="rounded-lg p-2 text-zinc-500 hover:bg-purple-50 hover:text-purple-600 dark:text-zinc-400 dark:hover:bg-purple-900/30 dark:hover:text-purple-400"
-                          title="Vista previa"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteResource(resource.id)}
-                        className="rounded-lg p-2 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-        </AnimatePresence>
-
-        {/* Estado vacío */}
-        {resources.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-12 text-center bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-xl"
-          >
-            <div className="rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 p-4 mb-4">
-              <File className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-            </div>
-            <h3 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-              No hay recursos
-            </h3>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mb-6">
-              Sube archivos para compartir con tus estudiantes o para tener
-              material de referencia para esta colección
-            </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 shadow-md hover:shadow-lg"
-            >
-              <Plus className="h-4 w-4" />
-              Subir primer archivo
-            </button>
-          </motion.div>
-        )}
-
-        {/* Mensaje cuando no hay resultados de búsqueda */}
-        {resources.length > 0 &&
-          resources.filter((resource) =>
-            resource.fileName.toLowerCase().includes(searchQuery.toLowerCase())
-          ).length === 0 && (
+          {/* Estado vacío */}
+          {resources.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-8 text-center bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-xl"
+              className="flex flex-col items-center justify-center py-12 text-center bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-xl"
             >
-              <Search className="h-8 w-8 text-blue-500 dark:text-blue-400 mb-4" />
-              <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                No se encontraron resultados
+              <div className="rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 p-4 mb-4">
+                <File className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                No hay recursos
               </h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                No hay archivos que coincidan con "{searchQuery}"
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mb-6">
+                Sube archivos para compartir con tus estudiantes o para tener
+                material de referencia para esta colección
               </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:from-blue-700 hover:to-purple-700 dark:hover:from-blue-600 dark:hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900 shadow-md hover:shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Subir primer archivo
+              </button>
             </motion.div>
           )}
-      </div>
+
+          {/* Mensaje cuando no hay resultados de búsqueda */}
+          {resources.length > 0 &&
+            resources.filter((resource) =>
+              resource.fileName
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase())
+            ).length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-8 text-center bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-900/10 dark:to-purple-900/10 rounded-xl"
+              >
+                <Search className="h-8 w-8 text-blue-500 dark:text-blue-400 mb-4" />
+                <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                  No se encontraron resultados
+                </h3>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  No hay archivos que coincidan con "{searchQuery}"
+                </p>
+              </motion.div>
+            )}
+        </div>
+      )}
 
       {/* Indicador de carga */}
       {isUploading && (

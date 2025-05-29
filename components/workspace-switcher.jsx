@@ -93,15 +93,18 @@ export function WorkspaceSwitcher() {
             try {
               const usersResponse = await api.workspaces.getUsers(workspace.id);
               const users = usersResponse?.data || [];
-              const currentUser = users.find(u => u.email === user.email);
+              const currentUser = users.find((u) => u.email === user.email);
               if (currentUser) {
                 permissions[workspace.id] = currentUser.permissionType;
               }
             } catch (err) {
-              console.error(`Error loading permissions for workspace ${workspace.id}:`, err);
+              console.error(
+                `Error loading permissions for workspace ${workspace.id}:`,
+                err
+              );
             }
           }
-          
+
           if (mounted) {
             setWorkspacePermissions(permissions);
           }
@@ -148,24 +151,29 @@ export function WorkspaceSwitcher() {
     },
     [updateActiveWorkspace, router, pathname]
   );
-  
+
   const handleDeleteWorkspace = useCallback(
     async (workspaceId) => {
       try {
         // Filtrar el workspace eliminado de la lista
-        const updatedWorkspaces = workspaces.filter(w => w.id !== workspaceId);
+        const updatedWorkspaces = workspaces.filter(
+          (w) => w.id !== workspaceId
+        );
         setWorkspaces(updatedWorkspaces);
-        
+
         // Si el workspace eliminado era el activo, cambiar a otro
-        if (activeWorkspace?.id === workspaceId && updatedWorkspaces.length > 0) {
+        if (
+          activeWorkspace?.id === workspaceId &&
+          updatedWorkspaces.length > 0
+        ) {
           updateActiveWorkspace(updatedWorkspaces[0]);
           await router.push(`/workspaces/${updatedWorkspaces[0].id}/`);
         } else if (updatedWorkspaces.length === 0) {
           // Si no quedan workspaces, redirigir a la página principal
           updateActiveWorkspace(null);
-          await router.push('/');
+          await router.push("/");
         }
-        
+
         toast.success("Workspace eliminado correctamente");
       } catch (error) {
         console.error("Error deleting workspace:", error);
@@ -270,20 +278,17 @@ export function WorkspaceSwitcher() {
                     key={workspace.id}
                     className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70 flex justify-between items-center"
                   >
-                    <div 
+                    <div
                       className="flex-grow cursor-pointer"
                       onClick={() => handleWorkspaceChange(workspace)}
                     >
                       {workspace.name}
                       {workspace.id === activeWorkspace?.id && (
-                        <DropdownMenuShortcut>✓</DropdownMenuShortcut>
+                        <DropdownMenuShortcut> ✓</DropdownMenuShortcut>
                       )}
                     </div>
-                    <div 
-                      className="ml-2" 
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <DeleteWorkspaceDialog 
+                    <div className="ml-2" onClick={(e) => e.stopPropagation()}>
+                      <DeleteWorkspaceDialog
                         workspace={workspace}
                         onDelete={() => handleDeleteWorkspace(workspace.id)}
                         userPermission={workspacePermissions[workspace.id]}

@@ -4,6 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useApi } from "@/lib/api";
+import { CheckCircle } from "lucide-react";
 
 const FlashcardItem = ({ 
   flashcard, 
@@ -12,7 +13,10 @@ const FlashcardItem = ({
   onStateChange, 
   collectionId, 
   userEmail,
-  onFlashcardCreated 
+  onFlashcardCreated,
+  selectMode = false,
+  isSelected = false,
+  onToggleSelect
 }) => {
   const api = useApi();
   
@@ -81,13 +85,39 @@ const FlashcardItem = ({
           ? "border-green-600/50"
           : currentState.isRejected
           ? "border-red-600/50"
+          : isSelected && selectMode
+          ? "border-blue-500/70"
           : "border-zinc-800"
-      } rounded-lg p-4 hover:bg-gradient-to-br hover:from-zinc-900/90 hover:to-zinc-800/50 transition-all duration-300 shadow-lg`}
+      } rounded-lg p-4 hover:bg-gradient-to-br hover:from-zinc-900/90 hover:to-zinc-800/50 transition-all duration-300 shadow-lg ${
+        selectMode && !currentState.isSaved && !currentState.isRejected ? "cursor-pointer" : ""
+      }`}
+      onClick={() => {
+        if (selectMode && !currentState.isSaved && !currentState.isRejected && onToggleSelect) {
+          onToggleSelect();
+        }
+      }}
     >
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-medium text-white">Pregunta {index + 1}</h4>
-        <div className="text-xs text-zinc-400 bg-zinc-800/80 px-2 py-1 rounded-full">
-          Dificultad: {flashcard.difficulty || 1}
+        <div className="flex items-center gap-2">
+          {selectMode && !currentState.isSaved && !currentState.isRejected && (
+            <div 
+              className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
+                isSelected 
+                  ? "bg-blue-500 text-white" 
+                  : "bg-zinc-800 border border-zinc-700"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onToggleSelect) onToggleSelect();
+              }}
+            >
+              {isSelected && <CheckCircle className="w-3.5 h-3.5" />}
+            </div>
+          )}
+          <div className="text-xs text-zinc-400 bg-zinc-800/80 px-2 py-1 rounded-full">
+            Dificultad: {flashcard.difficulty || 1}
+          </div>
         </div>
       </div>
       <p className="text-zinc-300 mb-4">{flashcard.question}</p>
@@ -101,61 +131,7 @@ const FlashcardItem = ({
         )}
       </div>
 
-      {!currentState.isSaved && !currentState.isRejected ? (
-        <div className="flex justify-end space-x-2 mt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRejectFlashcard}
-            disabled={currentState.isSaved}
-            className="border-red-700/50 hover:bg-red-900/20 text-red-400 transition-all duration-300"
-          >
-            Rechazar
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSaveFlashcard}
-            disabled={
-              currentState.status === "saving" ||
-              currentState.isSaved ||
-              currentState.isRejected
-            }
-            className={`transition-all duration-300 ${
-              currentState.status === "saving"
-                ? "bg-zinc-700 text-zinc-300"
-                : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white"
-            }`}
-          >
-            {currentState.status === "saving" ? (
-              <span className="flex items-center">
-                <svg
-                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Guardando
-              </span>
-            ) : (
-              "Guardar"
-            )}
-          </Button>
-        </div>
-      ) : (
+      {currentState.isSaved || currentState.isRejected ? (
         <div className="mt-3 text-sm flex items-center justify-center">
           {currentState.isSaved ? (
             <span className="text-green-400 flex items-center justify-center bg-green-900/20 px-3 py-2 rounded-md">
@@ -195,7 +171,7 @@ const FlashcardItem = ({
             </span>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

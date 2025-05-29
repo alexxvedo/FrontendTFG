@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUserStore } from "@/store/user-store/user-store";
+import { useApi } from "@/lib/api";
 import {
   CheckCircle,
   Clock,
@@ -23,8 +25,16 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-export default function FlashcardTabs({ collection, isLoading, canEdit }) {
+export default function FlashcardTabs({
+  collection,
+  isLoading: initialLoading,
+  canEdit,
+}) {
   const [activeFilter, setActiveFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(initialLoading);
+  const user = useUserStore((state) => state.user);
+  const api = useApi();
+  const [flashcardsWithProgress, setFlashcardsWithProgress] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedFlashcard, setExpandedFlashcard] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,18 +57,30 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
 
   // Filter flashcards based on active filter and search query
   const filteredFlashcards = useMemo(() => {
-    if (!collection?.flashcards) return [];
+    // Usar las flashcards con progreso individual si están disponibles, de lo contrario usar las de la colección
+    const cardsToFilter =
+      flashcardsWithProgress.length > 0
+        ? flashcardsWithProgress
+        : collection?.flashcards || [];
 
-    // First filter by status
-    let filtered = collection.flashcards;
+    if (cardsToFilter.length === 0) return [];
+
+    // First filter by status - ahora refleja el progreso individual del usuario
+    // Los estados de las flashcards ahora vienen del progreso individual del usuario
+    // y no del estado general de la flashcard
+    let filtered = cardsToFilter;
     if (activeFilter === "mastered") {
-      filtered = filtered.filter((card) => card.status === "done");
+      filtered = filtered.filter((card) => {
+        return card.easeFactor > 3.5;
+      });
     } else if (activeFilter === "learning") {
-      filtered = filtered.filter((card) => card.status === "review");
+      filtered = filtered.filter((card) => {
+        return card.easeFactor <= 3.5;
+      });
     } else if (activeFilter === "new") {
-      filtered = filtered.filter(
-        (card) => !card.status || card.status === "pending"
-      );
+      filtered = filtered.filter((card) => {
+        return card.knoledgeLevel === null;
+      });
     }
 
     // Then filter by search query if it exists
@@ -95,6 +117,50 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
   const nextPage = () =>
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   const prevPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+
+  // Estado ya declarado arriba
+
+  // Cargar flashcards con progreso individual del usuario
+  useEffect(() => {
+    const loadFlashcardsWithProgress = async () => {
+      if (collection?.id && user?.email) {
+        try {
+          setIsLoading(true);
+          const workspaceId =
+            collection.workspaceId || collection.workspace?.id;
+
+          if (!workspaceId) {
+            console.error("No se pudo obtener el workspaceId de la colección");
+            return;
+          }
+
+          // Usar el email del usuario en lugar del ID
+          const response = await api.flashcards.listByCollection(
+            workspaceId,
+            collection.id,
+            user.email
+          );
+          console.log("Flashcards con progreso individual:", response.data);
+          setFlashcardsWithProgress(response.data);
+        } catch (error) {
+          console.error("Error al cargar las flashcards con progreso:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadFlashcardsWithProgress();
+
+    // Configurar un intervalo para refrescar las flashcards cada 60 segundos
+    const refreshInterval = setInterval(() => {
+      if (collection?.id && user?.email) {
+        loadFlashcardsWithProgress();
+      }
+    }, 60000);
+
+    return () => clearInterval(refreshInterval);
+  }, [collection?.id, user?.email]);
 
   // Reset to page 1 when filter or search changes
   useEffect(() => {
@@ -164,7 +230,7 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
                     <Pencil className="h-4 w-4" />
                   </button>
                 )}
-                
+
                 {/* Expand button */}
                 <button
                   onClick={(e) => {
@@ -203,23 +269,23 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
                     <div className="flex items-center gap-2">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          flashcard.status === "done"
+                          flashcard.status === "completada"
                             ? "bg-emerald-100/10 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/20"
-                            : flashcard.status === "review"
+                            : flashcard.status === "revision"
                             ? "bg-amber-100/10 text-amber-500 dark:bg-amber-900/20 dark:text-amber-400 ring-1 ring-amber-500/20"
                             : "bg-red-100/10 text-red-500 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/20"
                         }`}
                       >
-                        {flashcard.status === "done"
-                          ? "Completada"
-                          : flashcard.status === "review"
+                        {flashcard.status === "completada"
+                          ? "Hecha"
+                          : flashcard.status === "revision"
                           ? "Para repasar"
                           : "Sin hacer"}
                       </span>
                     </div>
                   )}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    <Avatar className="h-8 w-8 ring-2 ring-purple-500/30 dark:ring-purple-500/30 flex-shrink-0">
+                    <Avatar className="h-8 w-8 ring-2 ring-purple-500/30 dark:ring-purple-500/30">
                       <AvatarImage
                         src={flashcard.createdBy?.image || null}
                         alt={flashcard.createdBy?.name || "Usuario"}
@@ -229,14 +295,15 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
                           "U"}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm text-zinc-600 dark:text-zinc-300 font-medium truncate max-w-[80px]">
-                      {flashcard.createdBy?.name || "Usuario"}
-                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-zinc-600 dark:text-gray-400">
+                        {flashcard.createdBy?.name || "Usuario"}
+                      </p>
+                      <p className="text-xs text-zinc-500 dark:text-gray-400">
+                        Creador
+                      </p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-zinc-500 dark:text-zinc-400 text-xs">
-                  Haz clic para ver la respuesta
                 </div>
               </CardContent>
             </Card>
@@ -287,16 +354,16 @@ export default function FlashcardTabs({ collection, isLoading, canEdit }) {
                     <div className="flex items-center gap-2">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          flashcard.status === "done"
+                          flashcard.status === "completada"
                             ? "bg-emerald-100/10 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400 ring-1 ring-emerald-500/20"
-                            : flashcard.status === "review"
+                            : flashcard.status === "revision"
                             ? "bg-amber-100/10 text-amber-500 dark:bg-amber-900/20 dark:text-amber-400 ring-1 ring-amber-500/20"
                             : "bg-red-100/10 text-red-500 dark:bg-red-900/20 dark:text-red-400 ring-1 ring-red-500/20"
                         }`}
                       >
-                        {flashcard.status === "done"
-                          ? "Completada"
-                          : flashcard.status === "review"
+                        {flashcard.status === "completada"
+                          ? "Hecha"
+                          : flashcard.status === "revision"
                           ? "Para repasar"
                           : "Sin hacer"}
                       </span>

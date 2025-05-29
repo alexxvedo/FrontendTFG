@@ -54,7 +54,20 @@ export default function CollectionNotes() {
       const loadNotes = async () => {
         setIsLoading(true);
         try {
+          // Extraer el workspaceId de la URL o usar uno predeterminado
+          // Formato de URL esperado: /workspaces/:workspaceId/collections/:collectionId
+          const pathParts = window.location.pathname.split("/");
+          const workspaceId = pathParts.includes("workspaces")
+            ? pathParts[pathParts.indexOf("workspaces") + 1]
+            : "25";
+
+          console.log("Cargando notas con:", {
+            workspaceId,
+            collectionId: activeCollection?.id,
+          });
+
           const response = await api.notes.getNotes(
+            parseInt(workspaceId),
             parseInt(activeCollection?.id)
           );
 
@@ -62,7 +75,10 @@ export default function CollectionNotes() {
           setHasLoaded(true);
         } catch (error) {
           console.error("Error loading notes:", error);
-          toast.error("Error al cargar las notas");
+          toast.error(
+            "Error al cargar las notas: " +
+              (error.message || "Error desconocido")
+          );
         } finally {
           setIsLoading(false);
         }
@@ -70,7 +86,7 @@ export default function CollectionNotes() {
 
       loadNotes();
     }
-  }, [activeCollection, api.notes, hasLoaded, notes.length]);
+  }, [activeCollection, hasLoaded, notes.length]);
 
   // Filtrar y ordenar notas - Usando useMemo para evitar recálculos innecesarios
   const filteredNotes = useMemo(() => {

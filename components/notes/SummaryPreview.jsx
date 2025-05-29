@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, ChevronRight, Save, Check, X } from "lucide-react";
 import { useApi } from "@/lib/api";
@@ -8,6 +8,15 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import ReactMarkdown from "react-markdown";
 import { Input } from "@/components/ui/input";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import Highlight from "@tiptap/extension-highlight";
+import Link from "@tiptap/extension-link";
+import TextStyle from "@tiptap/extension-text-style";
+import Color from "@tiptap/extension-color";
+import Placeholder from "@tiptap/extension-placeholder";
 
 const SummaryPreview = React.memo(
   ({
@@ -26,6 +35,77 @@ const SummaryPreview = React.memo(
       isDetailed ? "Resumen Detallado" : "Resumen Breve"
     );
 
+    // Procesar el contenido que puede venir en formato Tiptap JSON o texto plano
+    const tiptapContent = useMemo(() => {
+      if (!summaryContent) return null;
+
+      // Intentar parsear el contenido como JSON (formato Tiptap)
+      try {
+        // Si es un string JSON, parsearlo
+        if (
+          typeof summaryContent === "string" &&
+          (summaryContent.startsWith("{") ||
+            summaryContent.includes('"type": "doc"'))
+        ) {
+          // Limpiar el string si contiene caracteres de escape adicionales
+          let cleanContent = summaryContent;
+          
+          // Si el string tiene caracteres de escape adicionales (como cuando se muestra en la UI)
+          if (summaryContent.includes('\\"')) {
+            cleanContent = summaryContent.replace(/\\\\|\\"/g, match => 
+              match === '\\\\' ? '\\' : '"'
+            );
+          }
+          
+          // Intentar parsear como JSON
+          const parsedContent = JSON.parse(cleanContent);
+          
+          // Verificar si es un objeto Tiptap válido
+          if (parsedContent && parsedContent.type === "doc") {
+            console.log("Contenido Tiptap JSON detectado y parseado correctamente");
+            return parsedContent;
+          }
+        }
+      } catch (error) {
+        console.log(
+          "Error al parsear contenido como JSON, tratando como texto plano:",
+          error
+        );
+      }
+
+      // Si no es JSON o falla el parsing, crear un documento Tiptap con el texto plano
+      console.log("Usando contenido como texto plano");
+      return {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: summaryContent }],
+          },
+        ],
+      };
+    }, [summaryContent]);
+
+    // Configurar el editor Tiptap en modo solo lectura
+    const editor = useEditor({
+      extensions: [
+        StarterKit,
+        Underline,
+        TextAlign.configure({
+          types: ["heading", "paragraph"],
+        }),
+        Highlight,
+        Link,
+        TextStyle,
+        Color,
+        Placeholder.configure({
+          placeholder: "El contenido del resumen se mostrará aquí...",
+        }),
+      ],
+      content: tiptapContent,
+      editable: false, // Modo solo lectura
+    });
+
     const handleSaveNote = useCallback(async () => {
       if (!session?.user?.email) {
         toast.error("Debes iniciar sesión para guardar notas");
@@ -40,12 +120,42 @@ const SummaryPreview = React.memo(
       try {
         setIsSaving(true);
 
+        // Guardar el contenido en formato Tiptap (JSON) para que sea compatible con el editor
         const noteData = {
           noteName: noteTitle,
-          content: summaryContent,
+          content: JSON.stringify(tiptapContent),
         };
 
-        await api.notes.create(collectionId, noteData, user.email);
+        // Extraer el workspaceId de la URL o usar uno predeterminado
+        // Formato de URL esperado: /workspaces/:workspaceId/collections/:collectionId
+        const pathParts = window.location.pathname.split("/");
+        const workspaceId = pathParts.includes("workspaces")
+          ? pathParts[pathParts.indexOf("workspaces") + 1]
+          : "25";
+
+        // Asegurarse de que collectionId es un número válido
+        const collectionIdNumber = parseInt(collectionId, 10);
+
+        if (isNaN(collectionIdNumber)) {
+          throw new Error("ID de colección inválido");
+        }
+
+        console.log("Guardando nota con los siguientes datos:", {
+          workspaceId,
+          collectionId: collectionIdNumber,
+          email: session.user.email,
+          noteData,
+          contentFormat: "Tiptap JSON",
+        });
+
+        // Usar la función create del objeto notes en la API
+        // La implementación espera: (workspaceId, collectionId, email, noteData)
+        await api.notes.create(
+          workspaceId,
+          collectionIdNumber,
+          session.user.email,
+          noteData
+        );
 
         setIsSaving(false);
         setIsSaved(true);
@@ -66,6 +176,7 @@ const SummaryPreview = React.memo(
       onNoteSaved,
       session,
       summaryContent,
+      tiptapContent, // Añadir tiptapContent como dependencia
     ]);
 
     return (
@@ -95,12 +206,12 @@ const SummaryPreview = React.memo(
                   placeholder="Título de la nota"
                   value={noteTitle}
                   onChange={(e) => setNoteTitle(e.target.value)}
-                  className="flex-1 bg-zinc-800/50 border-zinc-700 focus-visible:ring-purple-500"
+                  className="flex-1 bg-zinc-800/50 border-zinc-700 text-white"
                 />
                 <Button
                   onClick={handleSaveNote}
-                  disabled={isSaving || !noteTitle.trim()}
-                  className={`transition-all duration-300 ${
+                  disabled={isSaving}
+                  className={`whitespace-nowrap ${
                     isSaving
                       ? "bg-zinc-700 text-zinc-300"
                       : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white"
@@ -128,7 +239,7 @@ const SummaryPreview = React.memo(
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         ></path>
                       </svg>
-                      Guardando
+                      Guardando...
                     </span>
                   ) : (
                     <>
@@ -141,38 +252,23 @@ const SummaryPreview = React.memo(
             ) : (
               <div className="mb-4 text-sm flex items-center justify-center">
                 <span className="text-green-400 flex items-center justify-center bg-green-900/20 px-3 py-2 rounded-md">
-                  <Check className="w-4 h-4 mr-1" />
+                  <Check className="w-4 h-4 mr-2" />
                   Nota guardada correctamente
                 </span>
               </div>
             )}
 
-            <div className="prose prose-invert max-w-none prose-headings:mt-6 prose-headings:mb-4 prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:my-4 prose-p:leading-relaxed prose-li:my-2 prose-li:ml-4 prose-ul:my-4 prose-ol:my-4 prose-pre:my-4 prose-pre:p-4 prose-pre:bg-zinc-800/50 prose-pre:rounded-md prose-blockquote:my-4 prose-blockquote:pl-4 prose-blockquote:border-l-4 prose-blockquote:border-blue-500/50 prose-blockquote:italic prose-blockquote:text-zinc-300 prose-blockquote:bg-zinc-800/30 prose-blockquote:py-2 prose-blockquote:rounded-r-md text-zinc-200 text-base">
-              <ReactMarkdown
-                components={{
-                  h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400 pb-1 border-b border-zinc-700/50 mb-4" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-xl font-semibold text-white mt-6 mb-3" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-lg font-medium text-blue-300 mt-5 mb-2" {...props} />,
-                  p: ({node, ...props}) => <p className="my-3 leading-relaxed text-zinc-300" {...props} />,
-                  ul: ({node, ...props}) => <ul className="my-4 space-y-2 list-disc list-inside" {...props} />,
-                  ol: ({node, ...props}) => <ol className="my-4 space-y-2 list-decimal list-inside" {...props} />,
-                  li: ({node, ...props}) => <li className="ml-4 text-zinc-300" {...props} />,
-                  blockquote: ({node, ...props}) => <blockquote className="my-4 pl-4 border-l-4 border-purple-500/50 italic text-zinc-300 bg-zinc-800/30 py-2 px-2 rounded-r-md" {...props} />,
-                  code: ({node, inline, ...props}) => 
-                    inline 
-                      ? <code className="bg-zinc-800 text-purple-300 px-1 py-0.5 rounded text-sm" {...props} />
-                      : <code className="block bg-zinc-800/80 text-zinc-200 p-3 rounded-md my-4 overflow-x-auto text-sm" {...props} />,
-                  pre: ({node, ...props}) => <pre className="bg-zinc-800/80 p-4 rounded-md my-4 overflow-x-auto" {...props} />,
-                  hr: ({node, ...props}) => <hr className="my-6 border-zinc-700" {...props} />,
-                  a: ({node, ...props}) => <a className="text-blue-400 hover:text-blue-300 underline" {...props} />,
-                  table: ({node, ...props}) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-zinc-700 border border-zinc-700 rounded-md" {...props} /></div>,
-                  th: ({node, ...props}) => <th className="bg-zinc-800 px-4 py-2 text-left text-xs font-medium text-zinc-300 uppercase tracking-wider" {...props} />,
-                  td: ({node, ...props}) => <td className="px-4 py-2 border-t border-zinc-800 text-sm" {...props} />,
-                }}
-              >
-                {summaryContent}
-              </ReactMarkdown>
-            </div>
+            {/* Mostrar el contenido usando el editor Tiptap en modo solo lectura */}
+            {editor ? (
+              <div className="prose prose-invert max-w-none">
+                <EditorContent editor={editor} className="min-h-[200px]" />
+              </div>
+            ) : (
+              // Fallback a ReactMarkdown si el editor no está listo
+              <div className="prose prose-invert max-w-none">
+                <ReactMarkdown>{summaryContent}</ReactMarkdown>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -133,11 +133,17 @@ export default function StudySession({ params }) {
         flashcardId: flashcards[currentCardIndex]?.id,
         userId: user.id,
         reviewResult: status,
-        studyTimeInSeconds: studyTimeInSeconds,
+        timeSpentMs: studyTimeInSeconds * 1000, // Convertir a milisegundos para el backend
       };
 
       // Enviar la revisión al backend
-      await api.flashcards.updateProgress(reviewResult);
+      await api.flashcards.submitReview(
+        activeWorkspace?.id,
+        activeCollection?.id,
+        flashcards[currentCardIndex]?.id,
+        reviewResult,
+        user.email
+      );
 
       // Incrementar el contador de tarjetas completadas
       setCompletedCards((prev) => prev + 1);

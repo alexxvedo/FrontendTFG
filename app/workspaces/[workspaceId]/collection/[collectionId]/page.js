@@ -81,7 +81,8 @@ export default function CollectionPage() {
 
       const response = await api.collections.get(
         parseInt(workspaceId),
-        parseInt(collectionId)
+        parseInt(collectionId),
+        user?.email
       );
       setCollection(response.data);
       setActiveCollection(response.data);
@@ -186,7 +187,8 @@ export default function CollectionPage() {
       // Cargar las flashcards
       const flashcardsResponse = await api.flashcards.listByCollection(
         parseInt(workspaceId),
-        parseInt(collectionId)
+        parseInt(collectionId),
+        user.email
       );
 
       // Cargar los documentos (recursos)
@@ -304,7 +306,7 @@ export default function CollectionPage() {
         toast.info(`${data.user.name} ha dejado la colección`);
       }
     };
-    
+
     // Manejar cuando una colección es eliminada
     const handleCollectionDeleted = (data) => {
       console.log("Evento collection_deleted recibido:", data);
@@ -314,15 +316,16 @@ export default function CollectionPage() {
           <div className="flex flex-col gap-1">
             <div className="font-semibold">Colección eliminada</div>
             <div className="text-sm">
-              La colección ha sido eliminada por {data.deletedBy?.name || "un administrador"}.
+              La colección ha sido eliminada por{" "}
+              {data.deletedBy?.name || "un administrador"}.
             </div>
           </div>,
           { duration: 5000 }
         );
-        
+
         // Establecer el tipo de error para mostrar la pantalla de colección eliminada
         setErrorType("deleted");
-        
+
         // Redirigir al workspace después de un breve retraso
         setTimeout(() => {
           window.location.href = `/workspaces/${workspaceId}`;
@@ -348,13 +351,14 @@ export default function CollectionPage() {
   // Verificar si el usuario tiene permisos de edición
   // Un usuario con rol OWNER o EDITOR en el workspace puede editar cualquier colección
   const canEdit = ["EDITOR", "OWNER"].includes(userPermission);
-  
+
   // Función para cargar flashcards de una colección
   const fetchFlashcardsData = async (collectionId) => {
     try {
       const flashcardsResponse = await api.flashcards.listByCollection(
         parseInt(workspaceId),
-        parseInt(collectionId)
+        parseInt(collectionId),
+        user.email
       );
       setCollection((prev) => ({
         ...prev,
@@ -379,6 +383,21 @@ export default function CollectionPage() {
       // Aquí podríamos recargar las notas si fuera necesario
       console.log("Nota guardada, actualizando vista si es necesario");
     }
+  };
+
+  const handleResourceUploaded = async () => {
+    // Cargar los documentos (recursos)
+    const resourcesResponse = await api.resources.list(
+      parseInt(workspaceId),
+      parseInt(collectionId)
+    );
+
+    console.log("Resources");
+
+    setCollection((prev) => ({
+      ...prev,
+      resources: resourcesResponse.data || [],
+    }));
   };
 
   return (
@@ -434,13 +453,16 @@ export default function CollectionPage() {
                 Estudiar
               </button>
               <button
-                onClick={() => setIsSpacedStudyOpen(true)}
+                onClick={() => {
+                  setStudyMode("spaced");
+                  setIsStudyDialogOpen(true);
+                }}
                 className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors"
               >
                 <Zap className="h-4 w-4 mr-2" />
                 Repaso espaciado
               </button>
-              
+
               {/* Separador vertical */}
               <div className="h-8 border-l border-gray-300/20 dark:border-gray-700/30 mx-2"></div>
 
@@ -518,7 +540,11 @@ export default function CollectionPage() {
           )}
           {activeTab === "stats" && <CollectionStats collection={collection} />}
           {activeTab === "resources" && (
-            <CollectionResources collection={collection} canEdit={canEdit} />
+            <CollectionResources
+              collection={collection}
+              canEdit={canEdit}
+              onResourceUploaded={handleResourceUploaded}
+            />
           )}
           {activeTab === "notes" && <CollectionNotes canEdit={canEdit} />}
         </div>
@@ -568,17 +594,19 @@ export default function CollectionPage() {
         collection={collection}
       />
 
-      <PetAgent
-        resources={
-          collectionResources.length > 0
-            ? collectionResources
-            : collection?.resources || []
-        }
-        collectionId={collection?.id}
-        onFlashcardCreated={handleFlashcardAdded}
-        onNoteSaved={handleNoteSaved}
-        canEdit={canEdit}
-      />
+      {canEdit && (
+        <PetAgent
+          resources={
+            collectionResources.length > 0
+              ? collectionResources
+              : collection?.resources || []
+          }
+          collectionId={collection?.id}
+          onFlashcardCreated={handleFlashcardAdded}
+          onNoteSaved={handleNoteSaved}
+          canEdit={canEdit}
+        />
+      )}
     </div>
   );
 }

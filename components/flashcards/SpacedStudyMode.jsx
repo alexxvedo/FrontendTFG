@@ -23,14 +23,20 @@ export default function SpacedStudyMode({ collection, onClose }) {
   const loadFlashcards = async () => {
     try {
       setIsLoading(true);
-      const cards = await api.flashcards.getFlashcardsForReview(collection.id);
+      // Pasar el ID del workspace y la colección
+      const cards = await api.flashcards.getFlashcardsForReview(
+        collection.workspaceId,
+        collection.id
+      );
       if (Array.isArray(cards)) {
         setFlashcards(cards);
         setCurrentIndex(0);
         setShowAnswer(false);
         setStartTime(Date.now());
       } else {
-        toast.error("Error al cargar las flashcards: formato de respuesta inválido");
+        toast.error(
+          "Error al cargar las flashcards: formato de respuesta inválido"
+        );
       }
     } catch (error) {
       console.error("Error loading flashcards:", error);
@@ -54,30 +60,40 @@ export default function SpacedStudyMode({ collection, onClose }) {
     const currentCard = flashcards[currentIndex];
 
     try {
-      await api.flashcards.submitReview(currentCard.id, {
-        collectionId: collection.id,
-        status,
-        timeSpentMs,
-      });
+      await api.flashcards.submitReview(
+        collection.workspaceId,
+        collection.id,
+        currentCard.id,
+        {
+          status,
+          timeSpentMs,
+        },
+        user.email
+      );
 
       // Si la respuesta fue incorrecta, mover la tarjeta 3 posiciones adelante
-      if (status === "WRONG") {
+      if (status === "MAL") {
         const updatedFlashcards = [...flashcards];
         const currentCard = updatedFlashcards.splice(currentIndex, 1)[0];
-        const newPosition = Math.min(currentIndex + 3, updatedFlashcards.length);
+        const newPosition = Math.min(
+          currentIndex + 3,
+          updatedFlashcards.length
+        );
         updatedFlashcards.splice(newPosition, 0, currentCard);
         setFlashcards(updatedFlashcards);
       }
       // Si fue parcial, mover al final
-      else if (status === "PARTIAL") {
+      else if (status === "REGULAR") {
         const updatedFlashcards = [...flashcards];
         const currentCard = updatedFlashcards.splice(currentIndex, 1)[0];
         updatedFlashcards.push(currentCard);
         setFlashcards(updatedFlashcards);
       }
       // Si fue correcta, quitar de la lista
-      else {
-        const updatedFlashcards = flashcards.filter((_, i) => i !== currentIndex);
+      else if (status === "BIEN") {
+        const updatedFlashcards = flashcards.filter(
+          (_, i) => i !== currentIndex
+        );
         setFlashcards(updatedFlashcards);
         if (currentIndex >= updatedFlashcards.length) {
           setCurrentIndex(updatedFlashcards.length - 1);
@@ -109,8 +125,10 @@ export default function SpacedStudyMode({ collection, onClose }) {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4">
         <h3 className="text-xl font-semibold">¡Bien hecho! 🎉</h3>
-        <p className="text-muted-foreground">No hay más tarjetas para repasar por ahora.</p>
-        <Button 
+        <p className="text-muted-foreground">
+          No hay más tarjetas para repasar por ahora.
+        </p>
+        <Button
           onClick={onClose}
           className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:shadow-amber-500/15 dark:hover:shadow-amber-500/25 dark:focus:ring-offset-zinc-900"
         >
@@ -125,8 +143,10 @@ export default function SpacedStudyMode({ collection, onClose }) {
   if (!currentCard) {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4">
-        <p className="text-muted-foreground">Error al cargar la tarjeta actual.</p>
-        <Button 
+        <p className="text-muted-foreground">
+          Error al cargar la tarjeta actual.
+        </p>
+        <Button
           onClick={loadFlashcards}
           className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:shadow-amber-500/15 dark:hover:shadow-amber-500/25 dark:focus:ring-offset-zinc-900"
         >
@@ -150,14 +170,22 @@ export default function SpacedStudyMode({ collection, onClose }) {
             <Card className="relative overflow-hidden rounded-xl border bg-gradient-to-b from-amber-50 to-amber-100/20 p-6 dark:from-zinc-900 dark:to-zinc-900/20">
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-2">Pregunta:</h4>
-                  <p className="text-lg text-zinc-900 dark:text-zinc-100">{currentCard.question}</p>
+                  <h4 className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-2">
+                    Pregunta:
+                  </h4>
+                  <p className="text-lg text-zinc-900 dark:text-zinc-100">
+                    {currentCard.question}
+                  </p>
                 </div>
 
                 {showAnswer && (
                   <div>
-                    <h4 className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-2">Respuesta:</h4>
-                    <p className="text-lg text-zinc-900 dark:text-zinc-100">{currentCard.answer}</p>
+                    <h4 className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-2">
+                      Respuesta:
+                    </h4>
+                    <p className="text-lg text-zinc-900 dark:text-zinc-100">
+                      {currentCard.answer}
+                    </p>
                   </div>
                 )}
               </div>
@@ -169,8 +197,8 @@ export default function SpacedStudyMode({ collection, onClose }) {
       <div className="p-4 border-t">
         <div className="flex justify-center space-x-4">
           {!showAnswer ? (
-            <Button 
-              onClick={handleShowAnswer} 
+            <Button
+              onClick={handleShowAnswer}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-amber-500/25 transition-all hover:shadow-xl hover:shadow-amber-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 dark:shadow-amber-500/15 dark:hover:shadow-amber-500/25 dark:focus:ring-offset-zinc-900"
             >
               Mostrar Respuesta
@@ -178,21 +206,21 @@ export default function SpacedStudyMode({ collection, onClose }) {
           ) : (
             <>
               <Button
-                onClick={() => handleReview("WRONG")}
+                onClick={() => handleReview("MAL")}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-red-500 to-red-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-red-500/25 transition-all hover:shadow-xl hover:shadow-red-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 dark:shadow-red-500/15 dark:hover:shadow-red-500/25 dark:focus:ring-offset-zinc-900"
               >
                 <ThumbsDown className="w-4 h-4" />
                 <span>No me lo sé</span>
               </Button>
               <Button
-                onClick={() => handleReview("PARTIAL")}
+                onClick={() => handleReview("REGULAR")}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-yellow-500/25 transition-all hover:shadow-xl hover:shadow-yellow-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 dark:shadow-yellow-500/15 dark:hover:shadow-yellow-500/25 dark:focus:ring-offset-zinc-900"
               >
                 <AlertTriangle className="w-4 h-4" />
                 <span>Más o menos</span>
               </Button>
               <Button
-                onClick={() => handleReview("CORRECT")}
+                onClick={() => handleReview("BIEN")}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-400 to-green-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-green-500/25 transition-all hover:shadow-xl hover:shadow-green-500/35 hover:translate-y-[-1px] active:translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 dark:shadow-green-500/15 dark:hover:shadow-green-500/25 dark:focus:ring-offset-zinc-900"
               >
                 <ThumbsUp className="w-4 h-4" />

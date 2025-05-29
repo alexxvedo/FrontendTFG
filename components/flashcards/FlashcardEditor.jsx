@@ -35,7 +35,7 @@ export default function FlashcardEditor({
   useEffect(() => {
     if (open && collection) {
       fetchFlashcards();
-      
+
       // Si hay una flashcard para editar, cargarla automáticamente
       if (flashcardToEdit) {
         startEditing(flashcardToEdit);
@@ -56,7 +56,8 @@ export default function FlashcardEditor({
     try {
       const response = await api.flashcards.listByCollection(
         collection.workspaceId,
-        collection.id
+        collection.id,
+        user.email
       );
       setFlashcards(response.data);
     } catch (error) {
@@ -88,22 +89,23 @@ export default function FlashcardEditor({
           {
             question: question,
             answer: answer,
-          }
+          },
+          user.email
         );
 
         updateFlashcard(response.data);
         toast.success("Flashcard actualizada correctamente");
       } else {
         // Crear nueva flashcard
-        response = await api.flashcards.create(collection.workspaceId, collection.id, {
-          question: question,
-          answer: answer,
-          createdBy: {
-            id: user.id,
-            name: user.name,
-            image: user.image,
+        response = await api.flashcards.create(
+          collection.workspaceId,
+          collection.id,
+          {
+            question: question,
+            answer: answer,
           },
-        });
+          user.email
+        );
 
         addFlashcard(response.data);
         toast.success("Flashcard creada correctamente");
@@ -132,11 +134,11 @@ export default function FlashcardEditor({
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = flashcard.question;
     setQuestion(tempDiv.textContent || tempDiv.innerText || flashcard.question);
-    
+
     tempDiv.innerHTML = flashcard.answer;
     setAnswer(tempDiv.textContent || tempDiv.innerText || flashcard.answer);
   };
-  
+
   const cancelEditing = () => {
     setEditingFlashcard(null);
     setQuestion("");
@@ -145,40 +147,46 @@ export default function FlashcardEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className={`${viewMode === "grid" ? "max-w-7xl" : "max-w-5xl"} max-h-[90vh] overflow-hidden flex flex-col bg-[#0A0A0F] p-0 border border-zinc-800 shadow-lg transition-all duration-300`}
+      <DialogContent
+        className={`${
+          viewMode === "grid" ? "max-w-7xl" : "max-w-5xl"
+        } max-h-[90vh] overflow-hidden flex flex-col bg-[#0A0A0F] p-0 border border-zinc-800 shadow-lg transition-all duration-300`}
       >
         <DialogHeader className="px-8 pt-8 pb-4 relative overflow-hidden">
           {/* Efectos visuales sutiles */}
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl opacity-40"></div>
           <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-purple-600/10 rounded-full blur-3xl opacity-40"></div>
-          
+
           <div className="flex items-center justify-between relative z-10">
             <div>
               <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
                 {editingFlashcard ? "Editar" : "Crear"} Flashcard
               </DialogTitle>
               <p className="text-gray-400 mt-1">
-                {editingFlashcard 
-                  ? "Modifica el contenido de tu flashcard existente" 
+                {editingFlashcard
+                  ? "Modifica el contenido de tu flashcard existente"
                   : "Crea una nueva flashcard para tu colección"}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={`rounded-full ${viewMode === "list" ? "bg-zinc-800" : ""}`}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`rounded-full ${
+                  viewMode === "list" ? "bg-zinc-800" : ""
+                }`}
                 onClick={() => setViewMode("list")}
                 title="Vista de lista"
               >
                 <List className="h-4 w-4 text-gray-300" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={`rounded-full ${viewMode === "grid" ? "bg-zinc-800" : ""}`}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`rounded-full ${
+                  viewMode === "grid" ? "bg-zinc-800" : ""
+                }`}
                 onClick={() => setViewMode("grid")}
                 title="Vista de cuadrícula"
               >
@@ -188,12 +196,20 @@ export default function FlashcardEditor({
           </div>
         </DialogHeader>
 
-        <div className={`flex-1 overflow-hidden grid grid-cols-1 ${viewMode === "grid" ? "md:grid-cols-3" : "md:grid-cols-2"} gap-8 p-8 pt-4 relative`}>
+        <div
+          className={`flex-1 overflow-hidden grid grid-cols-1 ${
+            viewMode === "grid" ? "md:grid-cols-3" : "md:grid-cols-2"
+          } gap-8 p-8 pt-4 relative`}
+        >
           {/* Fondo sutil */}
           <div className="absolute inset-0 bg-gradient-to-br from-blue-900/5 via-purple-900/5 to-blue-900/5 opacity-50 pointer-events-none"></div>
-          
+
           {/* Lista/Grid de Flashcards */}
-          <div className={`${viewMode === "grid" ? "col-span-2" : ""} border rounded-xl border-zinc-800/80 bg-zinc-900/90 overflow-hidden shadow-lg shadow-black/20 relative z-10`}>
+          <div
+            className={`${
+              viewMode === "grid" ? "col-span-2" : ""
+            } border rounded-xl border-zinc-800/80 bg-zinc-900/90 overflow-hidden shadow-lg shadow-black/20 relative z-10`}
+          >
             <div className="p-5 border-b border-zinc-800/80 bg-gradient-to-r from-zinc-900 to-zinc-900/95">
               <h3 className="text-lg font-semibold text-white flex items-center">
                 <span className="bg-gradient-to-r from-blue-500 to-purple-500 w-1 h-5 rounded mr-2 inline-block"></span>
@@ -220,21 +236,22 @@ export default function FlashcardEditor({
               ) : viewMode === "list" ? (
                 <div className="p-5 space-y-6">
                   {flashcards.map((flashcard) => (
-                    <div
-                      key={flashcard.id}
-                      className="mb-6 group"
-                    >
+                    <div key={flashcard.id} className="mb-6 group">
                       <Card
-                        className={`cursor-pointer transition-all duration-300 ${editingFlashcard?.id === flashcard.id 
-                          ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10" 
-                          : "border border-zinc-800/80 hover:border-blue-500/50 group-hover:shadow-md group-hover:shadow-blue-500/5"} 
+                        className={`cursor-pointer transition-all duration-300 ${
+                          editingFlashcard?.id === flashcard.id
+                            ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10"
+                            : "border border-zinc-800/80 hover:border-blue-500/50 group-hover:shadow-md group-hover:shadow-blue-500/5"
+                        } 
                           bg-gradient-to-br from-zinc-900 to-zinc-900/95 rounded-xl overflow-hidden`}
                         onClick={() => startEditing(flashcard)}
                       >
                         <div className="p-5">
                           <div className="mb-4 pb-3 border-b border-zinc-800/80">
                             <h4 className="font-medium text-base text-blue-400 mb-2 flex items-center">
-                              <span className="bg-blue-500/20 text-blue-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">Q</span>
+                              <span className="bg-blue-500/20 text-blue-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">
+                                Q
+                              </span>
                               Pregunta
                             </h4>
                             <div
@@ -246,7 +263,9 @@ export default function FlashcardEditor({
                           </div>
                           <div>
                             <h4 className="font-medium text-base text-purple-400 mb-2 flex items-center">
-                              <span className="bg-purple-500/20 text-purple-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">A</span>
+                              <span className="bg-purple-500/20 text-purple-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">
+                                A
+                              </span>
                               Respuesta
                             </h4>
                             <div
@@ -264,21 +283,22 @@ export default function FlashcardEditor({
               ) : (
                 <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {flashcards.map((flashcard) => (
-                    <div
-                      key={flashcard.id}
-                      className="group h-full"
-                    >
+                    <div key={flashcard.id} className="group h-full">
                       <Card
-                        className={`cursor-pointer transition-all duration-300 h-full ${editingFlashcard?.id === flashcard.id 
-                          ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10" 
-                          : "border border-zinc-800/80 hover:border-blue-500/50 group-hover:shadow-md group-hover:shadow-blue-500/5"} 
+                        className={`cursor-pointer transition-all duration-300 h-full ${
+                          editingFlashcard?.id === flashcard.id
+                            ? "border-2 border-blue-500 shadow-lg shadow-blue-500/10"
+                            : "border border-zinc-800/80 hover:border-blue-500/50 group-hover:shadow-md group-hover:shadow-blue-500/5"
+                        } 
                           bg-gradient-to-br from-zinc-900 to-zinc-900/95 rounded-xl overflow-hidden flex flex-col`}
                         onClick={() => startEditing(flashcard)}
                       >
                         <div className="p-4 flex-1 flex flex-col">
                           <div className="mb-3 pb-3 border-b border-zinc-800/80 flex-1">
                             <h4 className="font-medium text-sm text-blue-400 mb-2 flex items-center">
-                              <span className="bg-blue-500/20 text-blue-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">Q</span>
+                              <span className="bg-blue-500/20 text-blue-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">
+                                Q
+                              </span>
                               Pregunta
                             </h4>
                             <div
@@ -290,7 +310,9 @@ export default function FlashcardEditor({
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-sm text-purple-400 mb-2 flex items-center">
-                              <span className="bg-purple-500/20 text-purple-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">A</span>
+                              <span className="bg-purple-500/20 text-purple-400 w-5 h-5 rounded-full flex items-center justify-center text-xs mr-2">
+                                A
+                              </span>
                               Respuesta
                             </h4>
                             <div
@@ -313,7 +335,9 @@ export default function FlashcardEditor({
           <div className="space-y-6 relative z-10">
             <div>
               <label className="flex items-center text-base font-semibold text-white mb-3">
-                <span className="bg-blue-500/20 text-blue-400 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">Q</span>
+                <span className="bg-blue-500/20 text-blue-400 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">
+                  Q
+                </span>
                 Pregunta
               </label>
               <div className="relative group">
@@ -329,7 +353,9 @@ export default function FlashcardEditor({
 
             <div>
               <label className="flex items-center text-base font-semibold text-white mb-3">
-                <span className="bg-purple-500/20 text-purple-400 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">A</span>
+                <span className="bg-purple-500/20 text-purple-400 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">
+                  A
+                </span>
                 Respuesta
               </label>
               <div className="relative group">
@@ -361,7 +387,9 @@ export default function FlashcardEditor({
               >
                 <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-blue-500/0 via-purple-500/0 to-blue-400/0 group-hover:from-blue-500/20 group-hover:via-purple-500/20 group-hover:to-blue-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
                 <Save className="h-4 w-4 mr-1 relative z-10" />
-                <span className="relative z-10">{editingFlashcard ? "Actualizar" : "Guardar"}</span>
+                <span className="relative z-10">
+                  {editingFlashcard ? "Actualizar" : "Guardar"}
+                </span>
               </Button>
             </div>
           </div>

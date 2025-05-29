@@ -74,6 +74,8 @@ const PetAgent = ({
   const [isTyping, setIsTyping] = useState(false);
   const [showOptions, setShowOptions] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showContextInput, setShowContextInput] = useState(false);
+  const [additionalContext, setAdditionalContext] = useState("");
 
   // Estados para los diálogos
   const [flashcardDialog, setFlashcardDialog] = useState(false);
@@ -83,12 +85,13 @@ const PetAgent = ({
   // Estados para la generación de flashcards
   const [selectedDocument, setSelectedDocument] = useState("");
   const [numFlashcards, setNumFlashcards] = useState(5);
+  const [summaryLength, setSummaryLength] = useState(500);
   const [documentContent, setDocumentContent] = useState("");
   const [generatedFlashcards, setGeneratedFlashcards] = useState([]);
   const [flashcardStates, setFlashcardStates] = useState({});
   const scrollContainerRef = useRef(null);
   const scrollPositionRef = useRef(0);
-  
+
   // Estado para almacenar los recursos disponibles
   const [availableResources, setAvailableResources] = useState(resources);
 
@@ -127,34 +130,34 @@ const PetAgent = ({
       }, 300);
     }
   }, [isOpen]);
-  
+
   // Actualizar los recursos disponibles cuando cambian los props
   useEffect(() => {
     setAvailableResources(resources);
   }, [resources]);
-  
+
   // Función para actualizar los recursos cuando se sube un nuevo documento
   const handleResourcesUpdated = (newResources) => {
-    setAvailableResources(prevResources => {
+    setAvailableResources((prevResources) => {
       // Combinar los recursos existentes con los nuevos
       const updatedResources = [...prevResources];
-      
+
       // Añadir solo los recursos que no existen ya
-      newResources.forEach(newResource => {
-        const exists = updatedResources.some(r => r.id === newResource.id);
+      newResources.forEach((newResource) => {
+        const exists = updatedResources.some((r) => r.id === newResource.id);
         if (!exists) {
           updatedResources.push(newResource);
         }
       });
-      
+
       return updatedResources;
     });
-    
+
     // Si no hay documento seleccionado, seleccionar el primero de los nuevos
     if (!selectedDocument && newResources.length > 0) {
       setSelectedDocument(newResources[0].id);
     }
-    
+
     // Mostrar notificación
     toast.success("Nuevos documentos disponibles para consulta");
   };
@@ -170,8 +173,31 @@ const PetAgent = ({
     setIsTyping(true);
 
     try {
+      // Preparar el historial de conversación para enviar al backend
+      // Filtrar mensajes que no son opciones y limitar a los últimos 10 mensajes para mantener el contexto relevante
+      const conversationHistory = messages
+        .filter((msg) => !msg.isOptions && !msg.isWelcome)
+        .slice(-10)
+        .map((msg) => ({
+          role: msg.role || "user", // Asegurar que siempre hay un rol
+          content: msg.content || "", // Asegurar que siempre hay un contenido
+        }));
+
+      // Añadir la pregunta actual al historial
+      conversationHistory.push({
+        role: userMessage.role,
+        content: userMessage.content,
+      });
+
+      console.log("Enviando historial de conversación:", conversationHistory);
+
       // Llamada a la API para obtener respuesta del agente
-      const response = await api.agent.askQuestion(collectionId, input);
+      const response = await api.agent.askQuestion(
+        collectionId,
+        input,
+        null, // No hay contexto adicional
+        conversationHistory
+      );
 
       // Crear el mensaje de respuesta del asistente
       const botResponse = {
@@ -326,7 +352,8 @@ const PetAgent = ({
           // Llamada a la API para generar resumen detallado
           response = await api.agent.generateLongSummaryFromDocument(
             collectionId,
-            selectedResource.id
+            selectedResource.id,
+            summaryLength
           );
         }
 
@@ -611,6 +638,17 @@ const PetAgent = ({
                   ))}
                 </SelectContent>
               </Select>
+              <Label htmlFor="document" className="text-right text-zinc-400">
+                Número de palabras
+              </Label>
+              <Input
+                type="number"
+                min="100"
+                max="2000"
+                value={summaryLength}
+                onChange={(e) => setSummaryLength(parseInt(e.target.value))}
+                className="col-span-3 bg-zinc-900 border-zinc-700"
+              />
             </div>
           </div>
           <DialogFooter>
@@ -626,7 +664,7 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  }, [detailedSummaryDialog, selectedDocument, isLoading]);
+  }, [detailedSummaryDialog, selectedDocument, summaryLength, isLoading]);
 
   // Función para renderizar mensajes
   const renderMessage = useCallback((message, index) => {
@@ -680,46 +718,48 @@ const PetAgent = ({
         <div key={index} className="flex flex-col mb-4">
           <div className="flex mb-2">
             <div className="bg-zinc-800/50 backdrop-blur-sm text-white rounded-2xl rounded-tl-sm px-4 py-2 max-w-[80%]">
-              <ReactMarkdown
-                components={{
-                  p: ({ node, ...props }) => (
-                    <p className="mb-2 last:mb-0" {...props} />
-                  ),
-                  ul: ({ node, ...props }) => (
-                    <ul className="list-disc pl-4 mb-2" {...props} />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol className="list-decimal pl-4 mb-2" {...props} />
-                  ),
-                  li: ({ node, ...props }) => (
-                    <li className="mb-1" {...props} />
-                  ),
-                  a: ({ node, ...props }) => (
-                    <a
-                      className="text-blue-400 hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      {...props}
-                    />
-                  ),
-                  code: ({ node, inline, ...props }) =>
-                    inline ? (
-                      <code
-                        className="bg-zinc-700/50 px-1 py-0.5 rounded text-sm"
-                        {...props}
-                      />
-                    ) : (
-                      <code
-                        className="block bg-zinc-700/50 p-2 rounded-md text-sm overflow-x-auto my-2"
+              <div className="markdown-content">
+                <ReactMarkdown
+                  components={{
+                    p: ({ node, ...props }) => (
+                      <p className="mb-2 last:mb-0" {...props} />
+                    ),
+                    ul: ({ node, ...props }) => (
+                      <ul className="list-disc pl-4 mb-2" {...props} />
+                    ),
+                    ol: ({ node, ...props }) => (
+                      <ol className="list-decimal pl-4 mb-2" {...props} />
+                    ),
+                    li: ({ node, ...props }) => (
+                      <li className="mb-1" {...props} />
+                    ),
+                    a: ({ node, ...props }) => (
+                      <a
+                        className="text-blue-400 hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         {...props}
                       />
                     ),
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
+                    code: ({ node, inline, ...props }) =>
+                      inline ? (
+                        <code
+                          className="bg-zinc-700/50 px-1 py-0.5 rounded text-sm"
+                          {...props}
+                        />
+                      ) : (
+                        <code
+                          className="block bg-zinc-700/50 p-2 rounded-md text-sm overflow-x-auto my-2"
+                          {...props}
+                        />
+                      ),
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
 
-              {/* Mostrar fuentes si están disponibles y no es una respuesta general */}
+              {/* Mostrar fuentes si están disponibles, son relevantes y no es una respuesta general */}
               {message.sources &&
                 message.sources.length > 0 &&
                 !message.is_general_answer && (
@@ -728,46 +768,91 @@ const PetAgent = ({
                       Fuentes de información:
                     </p>
                     <div className="space-y-1.5">
-                      {message.sources.map((source, idx) => (
-                        <div
-                          key={idx}
-                          className="text-xs rounded bg-gradient-to-r from-blue-900/10 to-purple-900/10 border border-zinc-800/50"
-                        >
-                          <div className="px-2 py-1 flex items-center justify-between">
-                            <div className="flex items-center">
-                              <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 mr-2"></div>
-                              <span className="text-zinc-300 font-medium">
-                                {source.file_name}
-                              </span>
+                      {/* Mostrar solo documentos con líneas relevantes o alta puntuación de similitud */}
+                      {message.sources
+                        .filter(
+                          (source) =>
+                            (source.relevant_lines &&
+                              source.relevant_lines.length > 0) ||
+                            source.similarity_score >= 0.5
+                        )
+                        .map((source, idx) => (
+                          <div
+                            key={idx}
+                            className="text-xs rounded bg-gradient-to-r from-blue-900/10 to-purple-900/10 border border-zinc-800/50"
+                          >
+                            <div className="px-2 py-1 flex items-center justify-between">
+                              <div className="flex items-center">
+                                <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 mr-2"></div>
+                                <span className="text-zinc-300 font-medium">
+                                  {source.file_name}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          {source.relevant_lines &&
-                            source.relevant_lines.length > 0 && (
+                            {/* Mostrar líneas relevantes si existen, o un mensaje informativo si no hay */}
+                            {source.relevant_lines &&
+                            source.relevant_lines.length > 0 ? (
                               <div className="border-t border-zinc-800/50 px-2 py-1">
                                 <div className="text-zinc-400 text-[10px] mb-1">
-                                  Líneas relevantes:
+                                  Información relevante:
                                 </div>
                                 <div className="space-y-1">
-                                  {source.relevant_lines.map(
-                                    (line, lineIdx) => (
-                                      <div
-                                        key={lineIdx}
-                                        className="flex text-[10px]"
-                                      >
-                                        <span className="text-zinc-500 mr-2">
-                                          L{line.line_number}:
-                                        </span>
-                                        <span className="text-zinc-300">
-                                          {line.content}
-                                        </span>
-                                      </div>
-                                    )
-                                  )}
+                                  {/* Agrupar líneas por página */}
+                                  {(() => {
+                                    // Agrupar líneas por página
+                                    const linesByPage = {};
+                                    source.relevant_lines.forEach((line) => {
+                                      // Estimar el número de página (asumiendo 40 líneas por página)
+                                      const pageSize = 40;
+                                      const estimatedPage =
+                                        Math.floor(
+                                          line.line_number / pageSize
+                                        ) + 1;
+
+                                      if (!linesByPage[estimatedPage]) {
+                                        linesByPage[estimatedPage] = [];
+                                      }
+                                      linesByPage[estimatedPage].push(line);
+                                    });
+
+                                    // Renderizar líneas agrupadas por página
+                                    return Object.entries(linesByPage).map(
+                                      ([page, lines]) => (
+                                        <div key={page} className="mb-2">
+                                          <div className="text-blue-400 text-[10px] font-medium mb-1">
+                                            Página {page}:
+                                          </div>
+                                          <div className="pl-2 border-l border-zinc-700/30">
+                                            {lines.map((line, lineIdx) => (
+                                              <div
+                                                key={lineIdx}
+                                                className="flex text-[10px] mb-1"
+                                              >
+                                                <span className="text-zinc-500 mr-2 w-6 text-right">
+                                                  L{line.line_number % 40 || 40}
+                                                  :
+                                                </span>
+                                                <span className="text-zinc-300 flex-1">
+                                                  {line.content}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="border-t border-zinc-800/50 px-2 py-1">
+                                <div className="text-zinc-400 text-[10px] italic">
+                                  Documento relevante
                                 </div>
                               </div>
                             )}
-                        </div>
-                      ))}
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -815,11 +900,13 @@ const PetAgent = ({
                   </Button>
                 </div>
                 <div className="p-3 max-h-40 overflow-y-auto text-sm text-zinc-300">
-                  <ReactMarkdown>
-                    {message.summaryContent.length > 300
-                      ? message.summaryContent.substring(0, 300) + "..."
-                      : message.summaryContent}
-                  </ReactMarkdown>
+                  <div className="markdown-content">
+                    <ReactMarkdown>
+                      {message.summaryContent.length > 300
+                        ? message.summaryContent.substring(0, 300) + "..."
+                        : message.summaryContent}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             </div>
