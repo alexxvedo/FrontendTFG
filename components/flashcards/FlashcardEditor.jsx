@@ -36,20 +36,16 @@ export default function FlashcardEditor({
     if (open && collection) {
       fetchFlashcards();
 
+      setQuestion("");
+      setAnswer("");
+      setEditingFlashcard(null);
+
       // Si hay una flashcard para editar, cargarla automáticamente
       if (flashcardToEdit) {
         startEditing(flashcardToEdit);
       }
     }
   }, [open, collection, flashcardToEdit]);
-
-  useEffect(() => {
-    if (!open) {
-      setQuestion("");
-      setAnswer("");
-      setEditingFlashcard(null);
-    }
-  }, [open]);
 
   const fetchFlashcards = async () => {
     if (!collection?.id || !collection?.workspaceId) return;
@@ -146,8 +142,9 @@ export default function FlashcardEditor({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={true}>
       <DialogContent
+        forceMount
         className={`${
           viewMode === "grid" ? "max-w-7xl" : "max-w-5xl"
         } max-h-[90vh] overflow-hidden flex flex-col bg-[#0A0A0F] p-0 border border-zinc-800 shadow-lg transition-all duration-300`}

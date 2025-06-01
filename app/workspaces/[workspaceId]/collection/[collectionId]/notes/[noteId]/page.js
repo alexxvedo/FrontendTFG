@@ -6,8 +6,9 @@ import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
-import TiptapEditor from "@/components/notes/TiptapEditor";
-import { useNoteUsers } from "@/hooks/useNoteUsers";
+import MarkdownEditor from "@/components/notes/MarkdownEditor";
+// Comentamos la importación del hook de usuarios ya que no usaremos la funcionalidad colaborativa por ahora
+// import { useNoteUsers } from "@/hooks/useNoteUsers";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSession } from "next-auth/react";
 import {
@@ -26,20 +27,6 @@ export default function NotePage() {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const { users, cursors, updateCursor, updateContent, isReady } = useNoteUsers(
-    workspaceId,
-    noteId,
-    (newContent) => {
-      setContent(newContent);
-    }
-  );
-
-  useEffect(() => {
-    console.log("Estado de cursores:", cursors);
-    console.log("Usuarios en la nota:", users);
-    console.log("Socket listo:", isReady);
-  }, [cursors, users, isReady]);
-
   useEffect(() => {
     // Flag to prevent multiple loads
     let isMounted = true;
@@ -49,12 +36,7 @@ export default function NotePage() {
         if (noteId === "new") {
           if (isMounted) {
             setNote({ noteName: "Nueva nota", content: "" });
-            // Crear un documento vacío válido para Tiptap
-            const emptyDocument = {
-              type: "doc",
-              content: [{ type: "paragraph" }],
-            };
-            setContent(emptyDocument);
+            setContent("");
           }
           return;
         }
@@ -89,63 +71,18 @@ export default function NotePage() {
 
           setNote(foundNote);
 
-          // Procesar el contenido para el editor Tiptap
           if (!foundNote.content) {
-            // Si no hay contenido, usar un documento vacío
-            const emptyDocument = {
-              type: "doc",
-              content: [{ type: "paragraph" }],
-            };
-            setContent(emptyDocument);
+            setContent("");
           } else if (typeof foundNote.content === "string") {
-            try {
-              // Intentar parsear como JSON primero
-              if (foundNote.content.trim().startsWith("{")) {
-                const parsedContent = JSON.parse(foundNote.content);
-                console.log("Contenido parseado como JSON:", parsedContent);
-                if (isMounted) {
-                  setContent(parsedContent);
-                }
-              } else {
-                // Si no es JSON, crear un documento Tiptap con el texto plano
-                console.log("Creando documento Tiptap con texto plano");
-                const textDocument = {
-                  type: "doc",
-                  content: [
-                    {
-                      type: "paragraph",
-                      content: [{ type: "text", text: foundNote.content }],
-                    },
-                  ],
-                };
-                if (isMounted) {
-                  setContent(textDocument);
-                }
-              }
-            } catch (e) {
-              console.error("Error procesando el contenido:", e);
-              // Si hay error al parsear, crear un documento con el texto original
-              const textDocument = {
-                type: "doc",
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: foundNote.content }],
-                  },
-                ],
-              };
-              if (isMounted) {
-                setContent(textDocument);
-              }
-            }
+            setContent(foundNote.content);
           } else if (
             foundNote.content &&
             typeof foundNote.content === "object"
           ) {
-            // Si ya es un objeto, usarlo directamente
-            if (isMounted) {
-              setContent(foundNote.content);
-            }
+            // If it's an object, assume it's Tiptap JSON and convert to Markdown.
+            // This conversion logic needs to be implemented or imported.
+            // For now, we'll stringify it. A proper conversion utility will be needed here.
+            setContent(JSON.stringify(foundNote.content));
           }
         }
       } catch (error) {
@@ -155,12 +92,7 @@ export default function NotePage() {
             "Error al cargar la nota: " + (error.message || "Error desconocido")
           );
 
-          // En caso de error, crear un documento vacío
-          const emptyDocument = {
-            type: "doc",
-            content: [{ type: "paragraph" }],
-          };
-          setContent(emptyDocument);
+          setContent("");
         }
       }
     };
@@ -184,9 +116,7 @@ export default function NotePage() {
         ? pathParts[pathParts.indexOf("workspaces") + 1]
         : workspaceId;
 
-      // Asegurarse de que el contenido sea un string JSON
-      const contentToSave =
-        typeof content === "object" ? JSON.stringify(content) : content;
+      const contentToSave = content;
 
       console.log("Guardando nota con:", {
         workspaceId: urlWorkspaceId,
@@ -215,15 +145,10 @@ export default function NotePage() {
 
   const handleContentChange = (newContent) => {
     setContent(newContent);
-    updateContent(newContent);
-  };
-
-  const handleCursorUpdate = (cursorData) => {
-    updateCursor(cursorData);
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen h-screen">
       <div className="flex items-center justify-between px-6 py-4 border-b">
         <div className="flex items-center gap-4">
           <Button
@@ -246,47 +171,6 @@ export default function NotePage() {
           />
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex -space-x-3">
-            {users.map((user) => {
-              const hue =
-                Math.abs(
-                  user.email
-                    .split("")
-                    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                ) % 360;
-              const cursorColor = `hsl(${hue}, 70%,50%)`;
-
-              return (
-                <TooltipProvider key={user.email}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Avatar
-                        className="border-[3px] w-10 h-10 cursor-pointer hover:scale-105 transition-transform "
-                        style={{ borderColor: cursorColor }}
-                      >
-                        <AvatarImage src={user.image} />
-                        <AvatarFallback>
-                          {user.name?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      style={{
-                        backgroundColor: cursorColor,
-                        color: "white",
-                      }}
-                      className="rounded-lg shadow-lg"
-                    >
-                      <div className="flex flex-col gap-1">
-                        <span className="font-semibold">{user.name}</span>
-                        <span className="text-sm opacity-90">{user.email}</span>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
-            })}
-          </div>
           <Button
             onClick={handleSave}
             disabled={isSaving}
@@ -297,14 +181,18 @@ export default function NotePage() {
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-0 pt-8  max-w-full mx-auto w-full overflow-hidden">
-        <TiptapEditor
-          content={content}
-          onChange={handleContentChange}
-          onCursorUpdate={handleCursorUpdate}
-          cursors={cursors}
-          placeholder="Empieza a escribir..."
-        />
+      <div
+        className="flex-1 overflow-hidden px-6 pt-4 pb-4 max-w-full mx-auto w-full"
+        style={{ height: "calc(100vh - 73px)" }}
+      >
+        <div style={{ height: "100%" }}>
+          <MarkdownEditor
+            content={content}
+            noteName={note?.noteName}
+            onChange={handleContentChange}
+            placeholder="Empieza a escribir..."
+          />
+        </div>
       </div>
     </div>
   );

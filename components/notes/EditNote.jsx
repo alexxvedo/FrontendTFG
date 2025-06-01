@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useApi } from '@/lib/api';
 import { toast } from 'sonner';
-import TiptapEditor from './TiptapEditor';
+import MarkdownEditor from './MarkdownEditor';
 
 export default function EditNote({ note, isOpen, onClose, onNoteUpdated }) {
   const api = useApi();
@@ -61,7 +61,7 @@ export default function EditNote({ note, isOpen, onClose, onNoteUpdated }) {
           </div>
           <div className="flex-1 min-h-0 overflow-hidden bg-zinc-50 dark:bg-zinc-900 px-6">
             <div className="h-full py-4">
-              <TiptapEditor
+              <MarkdownEditor
                 content={content}
                 onChange={setContent}
                 placeholder="Escribe el contenido de tu nota aquí..."

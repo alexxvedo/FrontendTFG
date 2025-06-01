@@ -35,17 +35,22 @@ export default function CreateNoteDialog({
     setIsSubmitting(true);
 
     try {
-      const note = await api.notes.create(collectionId, user.email, {
-        noteName: noteName.trim(),
-        content: "",
-      });
+      const note = await api.notes.create(
+        params.workspaceId,
+        collectionId,
+        user.email,
+        {
+          noteName: noteName.trim(),
+          content: "",
+        }
+      );
 
       console.log(note);
 
       onNoteCreated?.(note);
       onClose();
       router.push(
-        `/workspaces/${params.workspaceId}/collection/${collectionId}/notes/${note.id}`
+        `/workspaces/${params.workspaceId}/collection/${collectionId}/notes/${note.data.id}`
       );
     } catch (error) {
       console.error("Error creating note:", error);

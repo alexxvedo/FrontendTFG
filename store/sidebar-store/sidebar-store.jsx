@@ -20,7 +20,7 @@ export const useSidebarStore = create(
       setWorkspaceCollecions: (workspaceCollections) => set({workspaceCollections}),
       isSidebarOpen: true, // Estado inicial de la sidebar
       openSidebar: () => set({ isSidebarOpen: true }), // Función para abrir la sidebar
-      closeSidebar: () => set({ isSidebarOpen: false }), // Función para cerrar la sidebar
+      closeSidebar: () => set({ isSidebarOpen: true }), // Temporarily disable closing to keep it always open
     }),
     {
       name: "sidebar-storage", // name of the item in the storage (must be unique)
