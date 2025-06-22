@@ -127,19 +127,20 @@ export default function CollectionStats({ collection }) {
       (card) => card.easeFactor > 3.5
     ).length;
 
+    const unclassifiedCount = collection.flashcards.filter(
+      (card) => card.status === "sinHacer"
+    ).length;
+
     const learningCount = collection.flashcards.filter(
-      (card) => card.easeFactor <= 3.5
+      (card) =>
+        card.easeFactor <= 3.5 &&
+        card.status !== "sinHacer" &&
+        card.status !== "revision"
     ).length;
 
     const needReviewCount = collection.flashcards.filter(
       (card) => card.status === "revision"
     ).length;
-
-    const unclassifiedCount =
-      collection.flashcards.length -
-      masterCount -
-      learningCount -
-      needReviewCount;
 
     // Calcular porcentajes de conocimiento
     const masterPercentage = calculatePercentage(masterCount, totalFlashcards);

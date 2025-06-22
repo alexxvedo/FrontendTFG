@@ -1,20 +1,73 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 import {
-  BookOpen,
-  Brain,
   Clock,
-  Flame,
-  Trophy,
+  Brain,
   Target,
-  Sparkles,
+  BookOpen,
   Users,
   Star,
+  Trophy,
+  Flame,
+  ChartBar,
+  Calendar,
+  CheckCircle,
   Zap,
-  BarChart,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+
+function StatCard({ icon: Icon, label, value, description, color, delay = 0 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className={`p-6 rounded-2xl bg-gradient-to-br from-${color}-500/10 to-transparent border border-${color}-500/10`}
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`p-2 rounded-lg bg-${color}-500/10`}>
+          <Icon className={`w-5 h-5 text-${color}-400`} />
+        </div>
+        <div>
+          <h3 className="font-medium text-white">{label}</h3>
+          <p className="text-sm text-gray-400">{description}</p>
+        </div>
+      </div>
+      <p className="text-3xl font-bold text-white">{value}</p>
+    </motion.div>
+  );
+}
+
+function ProgressSection({ label, value, total, icon: Icon, color }) {
+  const percentage = Math.round((value / total) * 100) || 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-2"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className={`w-4 h-4 text-${color}-400`} />
+          <span className="text-sm text-gray-400">{label}</span>
+        </div>
+        <span className="text-sm font-medium text-white">
+          {value} / {total}
+        </span>
+      </div>
+      <div className="relative h-2">
+        <div className="absolute inset-0 bg-zinc-800/50 rounded-full" />
+        <Progress
+          value={percentage}
+          className="h-2 relative z-10"
+          indicatorClassName={`bg-gradient-to-r from-${color}-500 to-${color}-400`}
+        />
+      </div>
+    </motion.div>
+  );
+}
 
 export function StatsSection({ userStats }) {
   if (!userStats) return null;
@@ -24,188 +77,164 @@ export function StatsSection({ userStats }) {
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
   };
-  
-  // Safely access properties with fallbacks
-  const studySeconds = userStats?.studySeconds || 0;
-  const createdFlashcards = userStats?.createdFlashcards || 0;
-  const studiedFlashcards = userStats?.studiedFlashcards || 0;
-  const dailyStreak = userStats?.dailyStreak || 0;
-  const unlockedAchievements = userStats?.unlockedAchievements || [];
-  const totalAchievements = userStats?.totalAchievements || 0;
-  const averageAccuracy = userStats?.averageAccuracy || 0;
-  const activeCollections = userStats?.activeCollections || 0;
-  const totalCollections = userStats?.totalCollections || 0;
-  const activeWorkspaces = userStats?.activeWorkspaces || 0;
-  const totalWorkspaces = userStats?.totalWorkspaces || 0;
 
-  const mainStats = [
-    {
-      icon: Clock,
-      label: "Study Time",
-      value: formatTime(studySeconds),
-      color: "from-blue-400 to-cyan-400",
-    },
-    {
-      icon: BookOpen,
-      label: "Created Cards",
-      value: createdFlashcards,
-      color: "from-purple-400 to-pink-400",
-    },
-    {
-      icon: Brain,
-      label: "Cards Studied",
-      value: studiedFlashcards,
-      color: "from-green-400 to-emerald-400",
-    },
-    {
-      icon: Flame,
-      label: "Day Streak",
-      value: dailyStreak,
-      color: "from-orange-400 to-red-400",
-    },
-  ];
-
-  const additionalStats = [
-    {
-      icon: Trophy,
-      label: "Achievements",
-      value: `${unlockedAchievements.length} / ${totalAchievements}`,
-      color: "from-yellow-400 to-amber-400",
-    },
-    {
-      icon: Target,
-      label: "Avg. Accuracy",
-      value: `${Math.round(averageAccuracy)}%`,
-      color: "from-red-400 to-rose-400",
-    },
-    {
-      icon: Sparkles,
-      label: "Collections",
-      value: `${activeCollections} / ${totalCollections}`,
-      color: "from-indigo-400 to-violet-400",
-    },
-    {
-      icon: Users,
-      label: "Workspaces",
-      value: `${activeWorkspaces} / ${totalWorkspaces}`,
-      color: "from-teal-400 to-emerald-400",
-    },
-  ];
-
-  const calculateProgress = (current, target) => {
-    return Math.min((current / target) * 100, 100);
+  const calculateAccuracy = () => {
+    const correct = userStats.correctAnswers || 0;
+    const total = userStats.totalAnswers || 0;
+    if (total === 0) return 0;
+    return Math.round((correct / total) * 100);
   };
 
-  // Get today's stats only for daily goals
-  const todayStudiedCards = userStats?.todayStudiedCards || 0;
-  const todayStudyMinutes = userStats?.todayStudyMinutes || 0;
-  const todayAccuracy = userStats?.todayAccuracy || 0;
-  
-  const dailyGoals = [
-    {
-      icon: Brain,
-      label: "Daily Cards",
-      current: todayStudiedCards,
-      target: 10, // More realistic daily target
-      color: "from-blue-400 to-cyan-400",
-    },
-    {
-      icon: Clock,
-      label: "Daily Study Time",
-      current: todayStudyMinutes,
-      target: 15, // More realistic daily target (15 minutes)
-      color: "from-purple-400 to-pink-400",
-      format: (value) => `${value}min`,
-    },
-    {
-      icon: Target,
-      label: "Daily Accuracy",
-      current: Math.round(todayAccuracy),
-      target: 100,
-      color: "from-yellow-400 to-amber-400",
-      format: (value) => `${value}%`,
-    },
-  ];
-
-  // No longer using best subjects
-
   return (
-    <div className="space-y-8">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-8"
+    >
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {mainStats.map((stat, index) => (
-          <StatCard key={index} {...stat} />
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <StatCard
+          icon={Clock}
+          label="Total Study Time"
+          value={formatTime(userStats.studySeconds || 0)}
+          description="Time invested in learning"
+          color="purple"
+          delay={0.1}
+        />
+        <StatCard
+          icon={Brain}
+          label="Cards Studied"
+          value={userStats.studiedFlashcards || 0}
+          description="Total flashcards reviewed"
+          color="blue"
+          delay={0.2}
+        />
+        <StatCard
+          icon={Target}
+          label="Accuracy Rate"
+          value={`${calculateAccuracy()}%`}
+          description="Correct answers percentage"
+          color="green"
+          delay={0.3}
+        />
+        <StatCard
+          icon={Flame}
+          label="Current Streak"
+          value={`${userStats.dailyStreak || 0} days`}
+          description="Consecutive study days"
+          color="orange"
+          delay={0.4}
+        />
       </div>
 
-      {/* Daily Goals Section */}
-      <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm p-4">
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-          <Star className="h-5 w-5 text-yellow-400" />
-          Daily Goals
-        </h3>
-        <div className="space-y-4">
-          {dailyGoals.map((goal, index) => (
-            <div key={index} className="space-y-2">
+      {/* Progress Sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Learning Progress */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+          className="p-6 rounded-2xl bg-gradient-to-br from-zinc-800/50 to-transparent border border-zinc-800/30 space-y-6"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+              Learning Progress
+            </h3>
+            <ChartBar className="w-5 h-5 text-purple-400" />
+          </div>
+
+          <ProgressSection
+            label="Daily Goal"
+            value={userStats.dailyGoalProgress || 0}
+            total={userStats.dailyGoalTarget || 100}
+            icon={Target}
+            color="purple"
+          />
+
+          <ProgressSection
+            label="Weekly Target"
+            value={userStats.weeklyProgress || 0}
+            total={userStats.weeklyTarget || 500}
+            icon={Calendar}
+            color="blue"
+          />
+
+          <ProgressSection
+            label="Mastery Level"
+            value={userStats.masteredCards || 0}
+            total={userStats.totalCards || 0}
+            icon={Star}
+            color="yellow"
+          />
+        </motion.div>
+
+        {/* Achievement Stats */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 }}
+          className="p-6 rounded-2xl bg-gradient-to-br from-zinc-800/50 to-transparent border border-zinc-800/30"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+              Achievement Stats
+            </h3>
+            <Trophy className="w-5 h-5 text-purple-400" />
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/10">
+                <CheckCircle className="w-5 h-5 text-purple-400 mb-2" />
+                <p className="text-2xl font-bold text-white">
+                  {userStats.completedSessions || 0}
+                </p>
+                <p className="text-sm text-gray-400">Sessions</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/10">
+                <BookOpen className="w-5 h-5 text-blue-400 mb-2" />
+                <p className="text-2xl font-bold text-white">
+                  {userStats.createdFlashcards || 0}
+                </p>
+                <p className="text-sm text-gray-400">Created</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <goal.icon className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-400">{goal.label}</span>
+                  <Users className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-400">Study Groups</span>
                 </div>
-                <span className="text-sm text-gray-400">
-                  {goal.format
-                    ? goal.format(goal.current)
-                    : goal.current}{" "}
-                  / {goal.format ? goal.format(goal.target) : goal.target}
+                <span className="text-sm font-medium text-white">
+                  {userStats.studyGroups || 0}
                 </span>
               </div>
-              <Progress
-                value={calculateProgress(goal.current, goal.target)}
-                className="h-2 bg-zinc-800"
-              />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-400">Best Streak</span>
+                </div>
+                <span className="text-sm font-medium text-white">
+                  {userStats.bestStreak || 0} days
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-400">Perfect Scores</span>
+                </div>
+                <span className="text-sm font-medium text-white">
+                  {userStats.perfectScores || 0}
+                </span>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Best Subjects section removed */}
-
-      {/* Additional Stats */}
-      <div>
-        <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-          <Zap className="h-5 w-5 text-purple-400" />
-          Additional Stats
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {additionalStats.map((stat, index) => (
-            <StatCard key={index} {...stat} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, color }) {
-  return (
-    <Card className="border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm hover:bg-zinc-800/70 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex flex-col gap-2 items-center text-center">
-          <div
-            className={`h-12 w-12 rounded-xl bg-gradient-to-r ${color} bg-opacity-10 flex items-center justify-center`}
-          >
-            <Icon className="h-6 w-6 text-white" />
           </div>
-          <div className="space-y-1">
-            <p
-              className={`text-2xl font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}
-            >
-              {value}
-            </p>
-            <span className="text-sm text-gray-400 block">{label}</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }

@@ -1,382 +1,282 @@
 "use client";
 
-import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { useApi } from "@/lib/api";
-import Confetti from "react-dom-confetti";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy,
   Star,
-  Flame,
-  Brain,
-  Target,
   Zap,
+  Brain,
   BookOpen,
   Users,
+  Target,
   Crown,
-  Award,
-  Medal,
   Clock,
+  Flame,
+  Sparkles,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { useState } from "react";
 
-const confettiConfig = {
-  angle: 90,
-  spread: 360,
-  startVelocity: 40,
-  elementCount: 100,
-  dragFriction: 0.12,
-  duration: 3000,
-  stagger: 3,
-  width: "10px",
-  height: "10px",
-  colors: ["#FFD700", "#FFA500", "#FF4500", "#FF6347", "#FF8C00"],
+const ACHIEVEMENT_CATEGORIES = {
+  LEARNING: "Learning",
+  SOCIAL: "Social",
+  MILESTONES: "Milestones",
+  SPECIAL: "Special",
 };
 
-export function AchievementsSection({ userStats, onStatsUpdated }) {
-  const api = useApi();
-  const [claimedAchievements, setClaimedAchievements] = useState({});
-  const [confettiActive, setConfettiActive] = useState({});
-  
-  // Safely access achievement data
-  const unlockedAchievements = userStats?.unlockedAchievements || [];
-  const totalAchievements = userStats?.totalAchievements || 0;
-  const achievementProgress = userStats?.achievementProgress || {};
+const ACHIEVEMENTS = [
+  {
+    id: "first_flashcard",
+    name: "First Step",
+    description: "Create your first flashcard",
+    category: ACHIEVEMENT_CATEGORIES.LEARNING,
+    icon: BookOpen,
+    color: "purple",
+    xp: 50,
+  },
+  {
+    id: "study_streak_7",
+    name: "Weekly Warrior",
+    description: "Maintain a 7-day study streak",
+    category: ACHIEVEMENT_CATEGORIES.LEARNING,
+    icon: Flame,
+    color: "orange",
+    xp: 100,
+  },
+  {
+    id: "master_collection",
+    name: "Collection Master",
+    description: "Master all flashcards in a collection",
+    category: ACHIEVEMENT_CATEGORIES.LEARNING,
+    icon: Crown,
+    color: "yellow",
+    xp: 200,
+  },
+  {
+    id: "social_study",
+    name: "Study Buddy",
+    description: "Study with another user",
+    category: ACHIEVEMENT_CATEGORIES.SOCIAL,
+    icon: Users,
+    color: "blue",
+    xp: 75,
+  },
+  {
+    id: "share_collection",
+    name: "Knowledge Sharer",
+    description: "Share a collection with others",
+    category: ACHIEVEMENT_CATEGORIES.SOCIAL,
+    icon: Sparkles,
+    color: "pink",
+    xp: 50,
+  },
+  {
+    id: "study_time_1h",
+    name: "Focus Master",
+    description: "Study for 1 hour straight",
+    category: ACHIEVEMENT_CATEGORIES.MILESTONES,
+    icon: Clock,
+    color: "cyan",
+    xp: 100,
+  },
+  {
+    id: "perfect_session",
+    name: "Perfect Score",
+    description: "Complete a study session with 100% accuracy",
+    category: ACHIEVEMENT_CATEGORIES.SPECIAL,
+    icon: Target,
+    color: "green",
+    xp: 150,
+  },
+  // Add more achievements as needed
+];
 
-  const handleClaimAchievement = async (achievementId) => {
-    try {
-      // Verificar si el logro ya está desbloqueado
-      if (unlockedAchievements.includes(achievementId)) {
-        console.log(`Achievement ${achievementId} already claimed`);
-        return;
-      }
-      
-      // Marcar como reclamado localmente
-      setClaimedAchievements((prev) => ({ ...prev, [achievementId]: true }));
-
-      // Activar confeti para este logro
-      setConfettiActive((prev) => ({ ...prev, [achievementId]: true }));
-
-      // Desactivar confeti después de la animación
-      setTimeout(() => {
-        setConfettiActive((prev) => ({ ...prev, [achievementId]: false }));
-      }, 3000);
-
-      // Incrementar el contador de logros y guardar el ID del logro
-      await api.userStats.achievementCompleted(userStats.user.email, achievementId);
-
-      // Crear una copia profunda para evitar mutaciones directas
-      const updatedStats = {
-        ...userStats,
-        unlockedAchievements: [...unlockedAchievements, achievementId],
-        totalAchievements: totalAchievements + 1
-      };
-      
-      // Notificar al componente padre sobre el cambio
-      if (onStatsUpdated) {
-        onStatsUpdated(updatedStats);
-      }
-    } catch (error) {
-      console.error("Error claiming achievement:", error);
-      // Revertir el estado si hay error
-      setClaimedAchievements((prev) => ({ ...prev, [achievementId]: false }));
-    }
+function AchievementCard({ achievement, isUnlocked, progress }) {
+  const colorVariants = {
+    purple:
+      "from-purple-500/20 to-transparent border-purple-500/20 text-purple-400",
+    blue: "from-blue-500/20 to-transparent border-blue-500/20 text-blue-400",
+    green:
+      "from-green-500/20 to-transparent border-green-500/20 text-green-400",
+    yellow:
+      "from-yellow-500/20 to-transparent border-yellow-500/20 text-yellow-400",
+    orange:
+      "from-orange-500/20 to-transparent border-orange-500/20 text-orange-400",
+    pink: "from-pink-500/20 to-transparent border-pink-500/20 text-pink-400",
+    cyan: "from-cyan-500/20 to-transparent border-cyan-500/20 text-cyan-400",
   };
-
-  if (!userStats) return null;
-
-  const achievementCategories = [
-    {
-      name: "Study Mastery",
-      icon: Brain,
-      achievements: [
-        {
-          name: "Knowledge Seeker",
-          description: "Study 100 flashcards",
-          icon: Brain,
-          rarity: "Common",
-          id: "knowledge_seeker",
-          progress: userStats.studiedFlashcards || 0,
-          target: 100,
-        },
-        {
-          name: "Master Scholar",
-          description: "Study 1000 flashcards",
-          icon: Crown,
-          rarity: "Epic",
-          id: "master_scholar",
-          progress: userStats.studiedFlashcards || 0,
-          target: 1000,
-        },
-        {
-          name: "Time Lord",
-          description: "Study for 24 hours total",
-          icon: Clock,
-          rarity: "Rare",
-          id: "time_lord",
-          progress: Math.floor((userStats.studySeconds || 0) / 3600),
-          target: 24,
-        },
-      ],
-    },
-    {
-      name: "Consistency",
-      icon: Flame,
-      achievements: [
-        {
-          name: "Daily Learner",
-          description: "Complete 7 days streak",
-          icon: Flame,
-          rarity: "Common",
-          id: "daily_learner",
-          progress: userStats.dailyStreak || 0,
-          target: 7,
-        },
-        {
-          name: "Study Warrior",
-          description: "Complete 30 days streak",
-          icon: Award,
-          rarity: "Rare",
-          id: "study_warrior",
-          progress: userStats.dailyStreak || 0,
-          target: 30,
-        },
-        {
-          name: "Learning Legend",
-          description: "Complete 365 days streak",
-          icon: Crown,
-          rarity: "Legendary",
-          id: "learning_legend",
-          progress: userStats.dailyStreak || 0,
-          target: 365,
-        },
-      ],
-    },
-    {
-      name: "Creation",
-      icon: BookOpen,
-      achievements: [
-        {
-          name: "Content Creator",
-          description: "Create 50 flashcards",
-          icon: BookOpen,
-          rarity: "Common",
-          id: "content_creator",
-          progress: userStats.createdFlashcards || 0,
-          target: 50,
-        },
-        {
-          name: "Knowledge Architect",
-          description: "Create 10 collections",
-          icon: Zap,
-          rarity: "Rare",
-          id: "knowledge_architect",
-          progress: userStats.totalCollections || 0,
-          target: 10,
-        },
-      ],
-    },
-    {
-      name: "Mastery",
-      icon: Target,
-      achievements: [
-        {
-          name: "Accuracy Master",
-          description: "Achieve 95% accuracy in 10 study sessions",
-          icon: Target,
-          rarity: "Epic",
-          id: "accuracy_master",
-          progress: userStats.studySessionsCompleted || 0,
-          target: 10,
-          condition: userStats.averageAccuracy >= 95,
-        },
-        {
-          name: "Perfect Streak",
-          description: "Complete 5 perfect study sessions in a row",
-          icon: Star,
-          rarity: "Legendary",
-          id: "perfect_streak",
-          progress: userStats.perfectStudySessions || 0,
-          target: 5,
-        },
-      ],
-    },
-  ];
-
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case "Legendary":
-        return "from-yellow-400 to-amber-600";
-      case "Epic":
-        return "from-purple-400 to-pink-600";
-      case "Rare":
-        return "from-blue-400 to-cyan-600";
-      case "Common":
-        return "from-gray-400 to-gray-600";
-      default:
-        return "from-gray-400 to-gray-600";
-    }
-  };
-
-  const getRarityBorderColor = (rarity) => {
-    switch (rarity) {
-      case "Legendary":
-        return "border-yellow-500/30";
-      case "Epic":
-        return "border-purple-500/30";
-      case "Rare":
-        return "border-blue-500/30";
-      case "Common":
-        return "border-gray-500/30";
-      default:
-        return "border-gray-500/30";
-    }
-  };
-
-  const isAchievementUnlocked = (achievement) => {
-    if (achievement.condition !== undefined) {
-      return (
-        achievement.progress >= achievement.target && achievement.condition
-      );
-    }
-    return achievement.progress >= achievement.target;
-  };
-
-  // Already declared at the top of the component
 
   return (
-    <div className="space-y-8">
-      {/* Achievement Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="col-span-2 md:col-span-4 p-4 rounded-lg border border-zinc-800 bg-zinc-800/50 backdrop-blur-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-yellow-500" />
-              <h3 className="text-lg font-semibold text-white">
-                Achievement Progress
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">
-                {unlockedAchievements.length} /{" "}
-                {userStats.totalAchievements || 0}
-              </span>
-            </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`relative p-4 rounded-xl bg-gradient-to-br ${
+        colorVariants[achievement.color]
+      } border`}
+    >
+      <div className="flex items-start gap-4">
+        <div className={`rounded-lg p-2 bg-${achievement.color}-500/10`}>
+          <achievement.icon className="w-6 h-6" />
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-white">{achievement.name}</h3>
+            <span className="text-sm font-medium">+{achievement.xp} XP</span>
           </div>
-          <Progress
-            value={
-              (unlockedAchievements.length /
-                (userStats.totalAchievements || 1)) *
-              100
-            }
-            className="h-2 bg-zinc-800"
-          />
+          <p className="text-sm text-gray-400 mt-1">
+            {achievement.description}
+          </p>
+
+          {typeof progress === "number" && (
+            <div className="mt-3">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-400">Progress</span>
+                <span className="text-gray-400">{Math.round(progress)}%</span>
+              </div>
+              <Progress
+                value={progress}
+                className="h-1.5"
+                indicatorClassName={`bg-${achievement.color}-500`}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Achievement Categories */}
-      {achievementCategories.map((category, index) => (
-        <div key={index} className="space-y-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <category.icon className="h-5 w-5 text-purple-400" />
+      {isUnlocked && (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center ring-2 ring-[#0A0A0F]"
+        >
+          ✓
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+export function AchievementsSection({ userStats }) {
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const unlockedAchievements = userStats?.achievements || [];
+
+  const categories = [
+    { id: "all", name: "All" },
+    ...Object.values(ACHIEVEMENT_CATEGORIES).map((category) => ({
+      id: category.toLowerCase(),
+      name: category,
+    })),
+  ];
+
+  const filteredAchievements = ACHIEVEMENTS.filter(
+    (achievement) =>
+      selectedCategory === "all" ||
+      achievement.category.toLowerCase() === selectedCategory
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-6"
+    >
+      {/* Category Filter */}
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2">
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => setSelectedCategory(category.id)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              selectedCategory === category.id
+                ? "bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-white border border-purple-500/20"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
             {category.name}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {category.achievements.map((achievement) => {
-              const isUnlocked = unlockedAchievements.includes(achievement.id);
-              const unlockable = isAchievementUnlocked(achievement);
-              return (
-                <div
-                  key={achievement.id}
-                  className={`p-4 rounded-lg border ${getRarityBorderColor(
-                    achievement.rarity
-                  )} bg-zinc-800/50 backdrop-blur-sm hover:bg-zinc-800/70 transition-all group relative overflow-hidden ${
-                    isUnlocked || claimedAchievements[achievement.id]
-                      ? "ring-2 ring-yellow-500/30"
-                      : ""
-                  }`}
-                >
-                  {/* Confetti container */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                    <Confetti
-                      active={confettiActive[achievement.id]}
-                      config={confettiConfig}
-                    />
-                  </div>
+          </button>
+        ))}
+      </div>
 
-                  {/* Achievement Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`h-10 w-10 rounded-lg bg-gradient-to-r ${getRarityColor(
-                          achievement.rarity
-                        )} flex items-center justify-center ${
-                          isUnlocked ? "opacity-100" : "opacity-50"
-                        }`}
-                      >
-                        <achievement.icon className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-white">
-                          {achievement.name}
-                        </h4>
-                        <p className="text-sm text-gray-400">
-                          {achievement.description}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={`bg-gradient-to-r ${getRarityColor(
-                        achievement.rarity
-                      )} bg-clip-text text-transparent border-zinc-700`}
-                    >
-                      {achievement.rarity}
-                    </Badge>
-                  </div>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/10"
+        >
+          <Trophy className="w-5 h-5 text-purple-400 mb-2" />
+          <p className="text-2xl font-bold text-white">
+            {unlockedAchievements.length}
+          </p>
+          <p className="text-sm text-gray-400">Unlocked</p>
+        </motion.div>
 
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
-                    <Progress
-                      value={(achievement.progress / achievement.target) * 100}
-                      className={`h-2 bg-zinc-800 ${
-                        unlockable ? "bg-yellow-500/30" : ""
-                      }`}
-                    />
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-400">
-                        {achievement.progress} / {achievement.target}
-                      </span>
-                      {isUnlocked && (
-                        <span className="text-sm text-yellow-500">
-                          Unlocked!
-                        </span>
-                      )}
-                      {!isUnlocked &&
-                        unlockable &&
-                        !claimedAchievements[achievement.id] && (
-                          <button
-                            onClick={() =>
-                              handleClaimAchievement(achievement.id)
-                            }
-                            className="text-sm text-yellow-500 animate-pulse hover:text-yellow-400 transition-colors"
-                          >
-                            Click to claim!
-                          </button>
-                        )}
-                      {claimedAchievements[achievement.id] && (
-                        <span className="text-sm text-yellow-500">
-                          Claimed!
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/10"
+        >
+          <Star className="w-5 h-5 text-blue-400 mb-2" />
+          <p className="text-2xl font-bold text-white">
+            {ACHIEVEMENTS.length - unlockedAchievements.length}
+          </p>
+          <p className="text-sm text-gray-400">Locked</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/10"
+        >
+          <Brain className="w-5 h-5 text-green-400 mb-2" />
+          <p className="text-2xl font-bold text-white">
+            {Math.round(
+              (unlockedAchievements.length / ACHIEVEMENTS.length) * 100
+            )}
+            %
+          </p>
+          <p className="text-sm text-gray-400">Completion</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/10"
+        >
+          <Zap className="w-5 h-5 text-yellow-400 mb-2" />
+          <p className="text-2xl font-bold text-white">
+            {unlockedAchievements.reduce((total, achievement) => {
+              const achievementData = ACHIEVEMENTS.find(
+                (a) => a.id === achievement
               );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
+              return total + (achievementData?.xp || 0);
+            }, 0)}
+          </p>
+          <p className="text-sm text-gray-400">Total XP</p>
+        </motion.div>
+      </div>
+
+      {/* Achievements Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <AnimatePresence mode="wait">
+          {filteredAchievements.map((achievement) => (
+            <AchievementCard
+              key={achievement.id}
+              achievement={achievement}
+              isUnlocked={unlockedAchievements.includes(achievement.id)}
+              progress={
+                achievement.id === "study_streak_7"
+                  ? ((userStats?.dailyStreak || 0) / 7) * 100
+                  : undefined
+              }
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }

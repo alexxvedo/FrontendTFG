@@ -79,7 +79,7 @@ export default function FlashcardTabs({
       });
     } else if (activeFilter === "new") {
       filtered = filtered.filter((card) => {
-        return card.knoledgeLevel === null;
+        return card.reviewCount === 0;
       });
     }
 

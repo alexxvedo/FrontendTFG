@@ -92,7 +92,8 @@
 }
 
 .transition-colors {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-property: color, background-color, border-color,
+    text-decoration-color, fill, stroke;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
@@ -113,7 +114,8 @@
 
 .hover-lift:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Gradient text effect */
@@ -126,19 +128,19 @@
 }
 
 .gradient-yellow-orange {
-  background-image: linear-gradient(to right, #EAB308, #F97316, #EAB308);
+  background-image: linear-gradient(to right, #eab308, #f97316, #eab308);
 }
 
 .gradient-blue-cyan {
-  background-image: linear-gradient(to right, #3B82F6, #06B6D4, #3B82F6);
+  background-image: linear-gradient(to right, #6b7280, #9ca3af, #6b7280);
 }
 
 .gradient-purple-pink {
-  background-image: linear-gradient(to right, #A855F7, #EC4899, #A855F7);
+  background-image: linear-gradient(to right, #a855f7, #ec4899, #a855f7);
 }
 
 .gradient-green-emerald {
-  background-image: linear-gradient(to right, #22C55E, #10B981, #22C55E);
+  background-image: linear-gradient(to right, #22c55e, #10b981, #22c55e);
 }
 
 /* Blur effects */

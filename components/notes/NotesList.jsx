@@ -13,12 +13,15 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import ReactMarkdown from "react-markdown";
+import Link from "next/link";
+import NotePreview from "./NotePreview";
 
 export default function NotesList({ notes = [] }) {
   const router = useRouter();
   const params = useParams();
   const { activeCollection } = useCollectionStore();
   const [hoveredNote, setHoveredNote] = useState(null);
+  const [expandedNote, setExpandedNote] = useState(null);
 
   const handleEditNote = (noteId) => {
     router.push(
@@ -170,97 +173,78 @@ export default function NotesList({ notes = [] }) {
       animate="visible"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {notes.map((note) => (
-          <motion.div
-            key={note.id}
-            variants={itemVariants}
-            whileHover={{ scale: 1.02 }}
-            onMouseEnter={() => setHoveredNote(note.id)}
-            onMouseLeave={() => setHoveredNote(null)}
-            className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-white/90 to-white/70 dark:from-[#0A0A0F]/90 dark:to-[#0A0A0F]/70 backdrop-blur-sm border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm hover:shadow-lg hover:shadow-blue-500/10 dark:hover:shadow-blue-400/10 transition-all duration-300"
-          >
-            {/* Orbes de fondo con animación */}
-            <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-600/5 dark:bg-blue-600/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-            <div className="absolute bottom-10 -left-20 w-40 h-40 bg-purple-600/5 dark:bg-purple-600/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100" />
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-900/5 via-purple-900/5 to-pink-900/5 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {notes.map((note) => {
+          const isExpanded = expandedNote === note.id;
+          const pathParts = window.location.pathname.split("/");
+          const workspaceId = pathParts[2];
+          const collectionId = pathParts[4];
 
-            {/* Contenido de la nota */}
-            <div
-              className="relative p-5 cursor-pointer h-full flex flex-col"
-              onClick={() => handleEditNote(note.id)}
+          return (
+            <motion.div
+              key={note.id}
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="group relative bg-zinc-900/50 hover:bg-zinc-900/70 border border-zinc-800/50 rounded-xl p-6 transition-all duration-200 cursor-pointer"
+              onClick={() => setExpandedNote(isExpanded ? null : note.id)}
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 p-1.5">
-                    <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="h-5 w-5 text-blue-400" />
+                      <h3 className="font-medium text-zinc-100 text-lg">
+                        {note.title || note.noteName || "Sin título"}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm text-zinc-500 mb-4">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>{formatDate(note.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>
+                          {new Date(note.createdAt).toLocaleTimeString(
+                            "es-ES",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="font-medium text-zinc-900 dark:text-white truncate max-w-[180px]">
-                    {note.noteName || note.title || "Nota sin título"}
-                  </h3>
+
+                  <Link
+                    href={`/workspaces/${workspaceId}/collection/${collectionId}/notes/${note.id}`}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Abrir
+                  </Link>
                 </div>
 
                 <div
-                  className={`flex items-center gap-1 transition-opacity duration-200 ${
-                    hoveredNote === note.id ? "opacity-100" : "opacity-0"
+                  className={`overflow-hidden transition-all duration-300 ${
+                    isExpanded ? "max-h-[500px]" : "max-h-[150px]"
                   }`}
                 >
-                  <button
-                    className="p-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 text-zinc-500 hover:text-blue-600 dark:text-zinc-400 dark:hover:text-blue-400"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditNote(note.id);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
+                  <div className="prose prose-sm prose-invert max-w-none prose-img:rounded-lg prose-img:mx-auto prose-img:max-h-[300px] prose-img:object-contain">
+                    <NotePreview content={note.content} />
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex-1 mb-4">
-                <div className="text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3 prose prose-invert max-w-none prose-p:my-2 prose-headings:my-2 prose-li:my-1">
-                  <ReactMarkdown
-                    components={{
-                      p: ({ node, ...props }) => (
-                        <p className="my-2 leading-relaxed" {...props} />
-                      ),
-                      h1: ({ node, ...props }) => (
-                        <h1 className="text-base font-bold" {...props} />
-                      ),
-                      h2: ({ node, ...props }) => (
-                        <h2 className="text-base font-semibold" {...props} />
-                      ),
-                      h3: ({ node, ...props }) => (
-                        <h3 className="text-base font-medium" {...props} />
-                      ),
-                      ul: ({ node, ...props }) => (
-                        <ul className="list-disc list-inside" {...props} />
-                      ),
-                      ol: ({ node, ...props }) => (
-                        <ol className="list-decimal list-inside" {...props} />
-                      ),
-                      li: ({ node, ...props }) => (
-                        <li className="ml-2" {...props} />
-                      ),
-                    }}
-                  >
-                    {note.content || "Sin contenido"}
-                  </ReactMarkdown>
-                </div>
+                {!isExpanded && (
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-zinc-900/50 to-transparent pointer-events-none" />
+                )}
               </div>
-
-              <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500 mt-auto pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>{formatDate(note.createdAt)}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{note.updatedAt ? "Editada" : "Nueva"}</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
 
         {notes.length === 0 && (
           <div className="col-span-full text-center py-8 text-zinc-500 dark:text-zinc-400">

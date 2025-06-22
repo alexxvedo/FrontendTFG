@@ -20,6 +20,7 @@ import { useApi } from "@/lib/api";
 import PomodoroTimer from "@/components/pomodoro/PomodoroTimer";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
+import "../flashcard.css"; // Importar los estilos de la flashcard
 
 // Importar ReactQuill de forma dinámica para evitar errores de SSR
 const ReactQuill = dynamic(() => import("react-quill"), {
@@ -397,73 +398,67 @@ export default function StudySession({ params }) {
 
         {/* Flashcard */}
         <div className="flex justify-center items-center h-full relative px-4 mt-8">
-          <div className="w-full max-w-[800px] mx-auto">
+          <div className="w-full max-w-[800px] mx-auto flashcard-container">
             <div
               onClick={() => !isCardAnimating && setIsFlipped(!isFlipped)}
-              className="transition-all duration-500 cursor-pointer shadow-2xl hover:shadow-purple-500/10 hover:scale-[1.02] bg-white/5 dark:bg-white/10 backdrop-blur-sm border border-zinc-800/30 rounded-2xl overflow-hidden"
+              className={`flashcard ${isFlipped ? "flipped" : ""}`}
             >
-              <div className="p-8 flex flex-col justify-center min-h-[400px] relative">
-                {/* Indicador de lado de la tarjeta */}
-                <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium ">
-                  {!isFlipped ? "Pregunta" : "Respuesta"}
+              {/* Cara frontal */}
+              <div className="flashcard-front p-8 flex flex-col justify-center min-h-[400px] relative bg-white/5 dark:bg-white/10 backdrop-blur-sm border border-zinc-800/30 rounded-2xl">
+                <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium">
+                  Pregunta
                 </div>
+                <div
+                  className="text-center flex items-center justify-center"
+                  style={{ minHeight: "200px" }}
+                >
+                  {stylesLoaded &&
+                    typeof window !== "undefined" &&
+                    flashcards.length > 0 && (
+                      <div className="quill-content text-3xl text-gray-800 dark:text-zinc-100">
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              flashcards[currentCardIndex]?.question || "",
+                          }}
+                        />
+                      </div>
+                    )}
+                </div>
+                <div className="absolute bottom-8 left-0 right-0 text-center">
+                  <p className="text-sm text-zinc-400 flex items-center justify-center">
+                    <span className="mr-2">Click para ver la respuesta</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </p>
+                </div>
+              </div>
 
-                {!isFlipped ? (
-                  <>
-                    <div
-                      className="text-center flex items-center justify-center"
-                      style={{ minHeight: "200px" }}
-                    >
-                      {stylesLoaded &&
-                        typeof window !== "undefined" &&
-                        flashcards.length > 0 && (
-                          <div className="quill-content text-3xl text-gray-800 dark:text-zinc-100">
-                            <div
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  flashcards[currentCardIndex]?.question || "",
-                              }}
-                            />
-                          </div>
-                        )}
-                    </div>
-
-                    <div className="absolute bottom-8 left-0 right-0 text-center">
-                      <p className="text-sm text-zinc-400 flex items-center justify-center">
-                        <span className="mr-2">
-                          Click para ver la respuesta
-                        </span>
-                        <ArrowRight className="h-4 w-4" />
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div
-                      className="text-center flex items-center justify-center"
-                      style={{ minHeight: "200px" }}
-                    >
-                      {stylesLoaded &&
-                        typeof window !== "undefined" &&
-                        flashcards.length > 0 && (
-                          <div className="quill-content text-2xl text-gray-800 dark:text-zinc-100">
-                            <div
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  flashcards[currentCardIndex]?.answer || "",
-                              }}
-                            />
-                          </div>
-                        )}
-                    </div>
-
-                    <div className="absolute bottom-8 left-0 right-0 text-center">
-                      <p className="text-sm text-zinc-400">
-                        Evalúa tu conocimiento usando los botones de abajo
-                      </p>
-                    </div>
-                  </>
-                )}
+              {/* Cara trasera */}
+              <div className="flashcard-back p-8 flex flex-col justify-center min-h-[400px] relative bg-white/5 dark:bg-white/10 backdrop-blur-sm border border-zinc-800/30 rounded-2xl">
+                <div className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium">
+                  Respuesta
+                </div>
+                <div
+                  className="text-center flex items-center justify-center"
+                  style={{ minHeight: "200px" }}
+                >
+                  {stylesLoaded &&
+                    typeof window !== "undefined" &&
+                    flashcards.length > 0 && (
+                      <div className="quill-content text-2xl text-gray-800 dark:text-zinc-100">
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: flashcards[currentCardIndex]?.answer || "",
+                          }}
+                        />
+                      </div>
+                    )}
+                </div>
+                <div className="absolute bottom-8 left-0 right-0 text-center">
+                  <p className="text-sm text-zinc-400">
+                    Evalúa tu conocimiento usando los botones de abajo
+                  </p>
+                </div>
               </div>
             </div>
           </div>

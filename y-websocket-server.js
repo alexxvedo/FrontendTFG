@@ -1,41 +1,51 @@
 #!/usr/bin/env node
 
 /**
- * Servidor WebSocket para Yjs
- * Este servidor maneja la sincronización de documentos Yjs para la edición colaborativa
+ * Servidor WebSocket para Yjs - Colaboración en tiempo real
+ * Usado para edición colaborativa de notas
  */
 
-const WebSocket = require('ws')
-const http = require('http')
-const setupWSConnection = require('y-websocket/bin/utils').setupWSConnection
+const WebSocket = require("ws");
+const http = require("http");
+const { setupWSConnection } = require("y-websocket/bin/utils");
 
-const port = process.env.PORT || 1234
-const host = process.env.HOST || 'localhost'
+const host = process.env.HOST || "localhost";
+const port = process.env.PORT || 1234;
 
+// Crear servidor HTTP
 const server = http.createServer((request, response) => {
-  response.writeHead(200, { 'Content-Type': 'text/plain' })
-  response.end('Servidor Yjs para edición colaborativa\n')
-})
+  response.writeHead(200, { "Content-Type": "text/plain" });
+  response.end("Yjs WebSocket Server is running!");
+});
 
-const wss = new WebSocket.Server({ server })
+// Crear servidor WebSocket
+const wss = new WebSocket.Server({ server });
 
-wss.on('connection', (conn, req) => {
-  setupWSConnection(conn, req, {
-    gc: true, // Habilitar recolección de basura
-    pingTimeout: 30000, // 30 segundos de timeout para ping
-    docName: req.url.slice(1).split('?')[0] // Nombre del documento desde la URL
-  })
-})
+console.log(`🚀 Yjs WebSocket Server iniciado en ws://${host}:${port}`);
+console.log(`📝 Listo para colaboración en tiempo real`);
 
+wss.on("connection", (ws, req) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  console.log(`🔗 Nueva conexión: ${url.pathname}`);
+
+  setupWSConnection(ws, req, {
+    // Configuración adicional si es necesaria
+    gc: true, // Garbage collection habilitado
+  });
+});
+
+// Manejar cierre del servidor
+process.on("SIGINT", () => {
+  console.log("\n⏹️  Cerrando servidor Yjs WebSocket...");
+  server.close(() => {
+    console.log("✅ Servidor cerrado correctamente");
+    process.exit(0);
+  });
+});
+
+// Iniciar servidor
 server.listen(port, host, () => {
-  console.log(`Servidor Yjs ejecutándose en: http://${host}:${port}`)
-})
-
-// Manejar cierre limpio
-process.on('SIGINT', () => {
-  console.log('Cerrando servidor Yjs...')
-  wss.close(() => {
-    console.log('Servidor WebSocket cerrado')
-    process.exit(0)
-  })
-})
+  console.log(
+    `📡 Servidor HTTP/WebSocket escuchando en http://${host}:${port}`
+  );
+});

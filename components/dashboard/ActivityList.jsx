@@ -36,26 +36,26 @@ export default function ActivityList({ activityList }) {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.05
-      }
-    }
+        staggerChildren: 0.05,
+      },
+    },
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 10 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: {
         type: "spring",
         stiffness: 100,
-        damping: 15
-      }
-    }
+        damping: 15,
+      },
+    },
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="w-full p-4"
       initial="hidden"
       animate="visible"
@@ -78,7 +78,7 @@ export default function ActivityList({ activityList }) {
 
       <div className="relative overflow-hidden border border-gray-200/20 dark:border-gray-700/30 rounded-xl bg-background/60 dark:bg-gray-800/30 backdrop-blur-sm shadow-sm">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/3 via-pink-500/3 to-blue-500/3 dark:from-purple-500/5 dark:via-pink-500/5 dark:to-blue-500/5 rounded-xl pointer-events-none" />
-        
+
         <Table>
           <TableHeader className="bg-gray-50/50 dark:bg-gray-800/50">
             <TableRow className="border-b border-gray-200/20 dark:border-gray-700/30 hover:bg-transparent">
@@ -110,7 +110,8 @@ export default function ActivityList({ activityList }) {
                           <Avatar className="border-2 border-background dark:border-gray-900 w-10 h-10 cursor-pointer hover:scale-105 transition-transform shadow-sm group-hover:shadow-md">
                             <AvatarImage src={activity.user.image} />
                             <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-                              {activity.user.name?.charAt(0).toUpperCase() || "U"}
+                              {activity.user.name?.charAt(0).toUpperCase() ||
+                                "U"}
                             </AvatarFallback>
                           </Avatar>
                         </TooltipTrigger>
@@ -153,7 +154,9 @@ export default function ActivityList({ activityList }) {
                       <Activity className="h-6 w-6 text-gray-400" />
                     </div>
                     <p>No hay actividad reciente</p>
-                    <p className="text-sm">Las acciones realizadas en el workspace aparecerán aquí</p>
+                    <p className="text-sm">
+                      Las acciones realizadas en el workspace aparecerán aquí
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>

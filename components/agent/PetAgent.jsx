@@ -110,6 +110,9 @@ const PetAgent = ({
   const inputRef = useRef(null);
   const api = useApi();
 
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [loadingStartTime, setLoadingStartTime] = useState(null);
+
   // Scroll al final de los mensajes cuando se añade uno nuevo
   useEffect(() => {
     const scrollToBottom = () => {
@@ -263,6 +266,38 @@ const PetAgent = ({
     [handleSendMessage]
   );
 
+  // Función para manejar mensajes de carga dinámicos
+  useEffect(() => {
+    let timeoutId;
+    if (isLoading && loadingStartTime) {
+      const updateLoadingMessage = () => {
+        const elapsedTime = Date.now() - loadingStartTime;
+
+        if (elapsedTime > 20000) {
+          // > 20 segundos
+          setLoadingMessage(
+            "Esto está llevando más tiempo de lo esperado, pero sigo trabajando. Por favor, espera un momento más..."
+          );
+        } else if (elapsedTime > 10000) {
+          // > 10 segundos
+          setLoadingMessage(
+            "Sigo procesando la información. Puede llevar un poco más de tiempo para asegurar la mejor calidad..."
+          );
+        } else if (elapsedTime > 5000) {
+          // > 5 segundos
+          setLoadingMessage(
+            "Analizando el contenido y generando resultados de calidad..."
+          );
+        }
+
+        timeoutId = setTimeout(updateLoadingMessage, 5000);
+      };
+
+      updateLoadingMessage();
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isLoading, loadingStartTime]);
+
   const handleGenerateFlashcards = useCallback(async () => {
     if (!selectedDocument) {
       toast.error("Por favor, selecciona un documento");
@@ -270,54 +305,47 @@ const PetAgent = ({
     }
 
     setIsLoading(true);
+    setLoadingStartTime(Date.now());
+    setLoadingMessage("Iniciando generación de flashcards...");
+
     try {
-      // Obtener el contenido del documento seleccionado
       const selectedResource = resources.find((r) => r.id === selectedDocument);
       if (!selectedResource) {
         throw new Error("No se pudo obtener el contenido del documento");
       }
 
-      console.log(selectedResource);
-
-      // Llamada a la API para generar flashcards
+      setLoadingMessage("Analizando el contenido del documento...");
       const response = await api.agent.generateFlashcardsFromDocument(
         collectionId,
         selectedResource.id,
         numFlashcards
       );
 
-      console.log("Respuesta: ", response);
-
-      // Guardar las flashcards generadas
-      const flashcards = response.data || [];
-      setGeneratedFlashcards(flashcards);
-
-      // Añadir mensaje con las flashcards generadas
+      setGeneratedFlashcards(response.data || []);
       const flashcardsMessage = {
         role: "assistant",
         content: `He generado ${
-          flashcards.length
+          response.data.length
         } flashcards a partir del documento "${
           selectedResource.fileName || "seleccionado"
         }".`,
         hasFlashcards: true,
-        flashcards: flashcards,
+        flashcards: response.data,
         documentName: selectedResource.fileName || "documento",
       };
 
       setMessages((prev) => [...prev, flashcardsMessage]);
       setFlashcardDialog(false);
-
-      // Expandir el panel lateral para mostrar las flashcards
       setGeneratedContentType("flashcards");
       setIsContentExpanded(true);
-
       toast.success("Flashcards generadas correctamente");
     } catch (error) {
       console.error("Error generando flashcards:", error);
       toast.error("Error al generar las flashcards: " + error.message);
     } finally {
       setIsLoading(false);
+      setLoadingMessage("");
+      setLoadingStartTime(null);
     }
   }, [selectedDocument, numFlashcards, collectionId, api.agent]);
 
@@ -329,8 +357,14 @@ const PetAgent = ({
       }
 
       setIsLoading(true);
+      setLoadingStartTime(Date.now());
+      setLoadingMessage(
+        isDetailed
+          ? "Iniciando generación del resumen detallado..."
+          : "Iniciando generación del resumen breve..."
+      );
+
       try {
-        // Obtener el contenido del documento seleccionado
         const selectedResource = resources.find(
           (r) => r.id === selectedDocument
         );
@@ -338,18 +372,18 @@ const PetAgent = ({
           throw new Error("No se pudo obtener el contenido del documento");
         }
 
-        console.log("Generando resumen para:", selectedResource);
-
+        setLoadingMessage("Analizando el contenido del documento...");
         let response;
 
         if (!isDetailed) {
-          // Llamada a la API para generar resumen
           response = await api.agent.generateBriefSummaryFromDocument(
             collectionId,
             selectedResource.id
           );
         } else {
-          // Llamada a la API para generar resumen detallado
+          setLoadingMessage(
+            "Generando resumen detallado. Esto puede tomar un poco más de tiempo..."
+          );
           response = await api.agent.generateLongSummaryFromDocument(
             collectionId,
             selectedResource.id,
@@ -357,12 +391,7 @@ const PetAgent = ({
           );
         }
 
-        console.log("Respuesta del resumen:", response);
-
-        // Formatear el contenido del resumen según sea detallado o breve
         let summaryContent = response.summary;
-
-        // Guardar el resumen generado
         setGeneratedSummary(summaryContent);
         setIsSummaryDetailed(isDetailed);
 
@@ -382,11 +411,8 @@ const PetAgent = ({
         setMessages((prev) => [...prev, summaryMessage]);
         setSummaryDialog(false);
         setDetailedSummaryDialog(false);
-
-        // Expandir el panel lateral para mostrar el resumen
         setGeneratedContentType("summary");
         setIsContentExpanded(true);
-
         toast.success(
           `${
             isDetailed ? "Resumen detallado" : "Resumen breve"
@@ -400,6 +426,8 @@ const PetAgent = ({
         );
       } finally {
         setIsLoading(false);
+        setLoadingMessage("");
+        setLoadingStartTime(null);
       }
     },
     [selectedDocument, collectionId, api.agent]
@@ -502,46 +530,63 @@ const PetAgent = ({
             <DialogTitle className="text-white">Generar Flashcards</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="document" className="text-right text-zinc-400">
-                Documento
-              </Label>
-              <Select
-                value={selectedDocument}
-                onValueChange={setSelectedDocument}
-              >
-                <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
-                  <SelectValue placeholder="Selecciona un documento" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  {availableResources.map((resource) => (
-                    <SelectItem key={resource.id} value={resource.id}>
-                      {resource.fileName || `Documento ${resource.id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="numCards" className="text-right text-zinc-400">
-                Cantidad
-              </Label>
-              <Select
-                value={numFlashcards.toString()}
-                onValueChange={(value) => setNumFlashcards(parseInt(value))}
-              >
-                <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
-                  <SelectValue placeholder="Número de flashcards" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  <SelectItem value="3">3 flashcards</SelectItem>
-                  <SelectItem value="5">5 flashcards</SelectItem>
-                  <SelectItem value="10">10 flashcards</SelectItem>
-                  <SelectItem value="15">15 flashcards</SelectItem>
-                  <SelectItem value="50">50 flashcards</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center p-4 space-y-4">
+                <div className="w-10 h-10 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                <p className="text-center text-sm text-zinc-400 animate-pulse">
+                  {loadingMessage}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label
+                    htmlFor="document"
+                    className="text-right text-zinc-400"
+                  >
+                    Documento
+                  </Label>
+                  <Select
+                    value={selectedDocument}
+                    onValueChange={setSelectedDocument}
+                  >
+                    <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
+                      <SelectValue placeholder="Selecciona un documento" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                      {availableResources.map((resource) => (
+                        <SelectItem key={resource.id} value={resource.id}>
+                          {resource.fileName || `Documento ${resource.id}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label
+                    htmlFor="numCards"
+                    className="text-right text-zinc-400"
+                  >
+                    Cantidad
+                  </Label>
+                  <Select
+                    value={numFlashcards.toString()}
+                    onValueChange={(value) => setNumFlashcards(parseInt(value))}
+                  >
+                    <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
+                      <SelectValue placeholder="Número de flashcards" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                      <SelectItem value="3">3 flashcards</SelectItem>
+                      <SelectItem value="5">5 flashcards</SelectItem>
+                      <SelectItem value="10">10 flashcards</SelectItem>
+                      <SelectItem value="15">15 flashcards</SelectItem>
+                      <SelectItem value="50">50 flashcards</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -556,7 +601,13 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  }, [flashcardDialog, selectedDocument, numFlashcards, isLoading]);
+  }, [
+    flashcardDialog,
+    selectedDocument,
+    numFlashcards,
+    isLoading,
+    loadingMessage,
+  ]);
 
   // Función para renderizar el diálogo de resumen breve
   const renderSummaryDialog = useCallback(() => {
@@ -569,26 +620,40 @@ const PetAgent = ({
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="document" className="text-right text-zinc-400">
-                Documento
-              </Label>
-              <Select
-                value={selectedDocument}
-                onValueChange={setSelectedDocument}
-              >
-                <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
-                  <SelectValue placeholder="Selecciona un documento" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  {availableResources.map((resource) => (
-                    <SelectItem key={resource.id} value={resource.id}>
-                      {resource.fileName || `Documento ${resource.id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center p-4 space-y-4">
+                <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                <p className="text-center text-sm text-zinc-400 animate-pulse">
+                  {loadingMessage}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label
+                    htmlFor="document"
+                    className="text-right text-zinc-400"
+                  >
+                    Documento
+                  </Label>
+                  <Select
+                    value={selectedDocument}
+                    onValueChange={setSelectedDocument}
+                  >
+                    <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
+                      <SelectValue placeholder="Selecciona un documento" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                      {availableResources.map((resource) => (
+                        <SelectItem key={resource.id} value={resource.id}>
+                          {resource.fileName || `Documento ${resource.id}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -603,7 +668,7 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  }, [summaryDialog, selectedDocument, isLoading]);
+  }, [summaryDialog, selectedDocument, isLoading, loadingMessage]);
 
   // Función para renderizar el diálogo de resumen detallado
   const renderDetailedSummaryDialog = useCallback(() => {
@@ -619,37 +684,54 @@ const PetAgent = ({
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="document" className="text-right text-zinc-400">
-                Documento
-              </Label>
-              <Select
-                value={selectedDocument}
-                onValueChange={setSelectedDocument}
-              >
-                <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
-                  <SelectValue placeholder="Selecciona un documento" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                  {availableResources.map((resource) => (
-                    <SelectItem key={resource.id} value={resource.id}>
-                      {resource.fileName || `Documento ${resource.id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Label htmlFor="document" className="text-right text-zinc-400">
-                Número de palabras
-              </Label>
-              <Input
-                type="number"
-                min="100"
-                max="2000"
-                value={summaryLength}
-                onChange={(e) => setSummaryLength(parseInt(e.target.value))}
-                className="col-span-3 bg-zinc-900 border-zinc-700"
-              />
-            </div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center p-4 space-y-4">
+                <div className="w-10 h-10 border-4 border-pink-500/30 border-t-pink-500 rounded-full animate-spin" />
+                <p className="text-center text-sm text-zinc-400 animate-pulse">
+                  {loadingMessage}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label
+                    htmlFor="document"
+                    className="text-right text-zinc-400"
+                  >
+                    Documento
+                  </Label>
+                  <Select
+                    value={selectedDocument}
+                    onValueChange={setSelectedDocument}
+                  >
+                    <SelectTrigger className="col-span-3 bg-zinc-900 border-zinc-700">
+                      <SelectValue placeholder="Selecciona un documento" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                      {availableResources.map((resource) => (
+                        <SelectItem key={resource.id} value={resource.id}>
+                          {resource.fileName || `Documento ${resource.id}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Label
+                    htmlFor="document"
+                    className="text-right text-zinc-400"
+                  >
+                    Número de palabras
+                  </Label>
+                  <Input
+                    type="number"
+                    min="100"
+                    max="2000"
+                    value={summaryLength}
+                    onChange={(e) => setSummaryLength(parseInt(e.target.value))}
+                    className="col-span-3 bg-zinc-900 border-zinc-700"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -664,7 +746,13 @@ const PetAgent = ({
         </DialogContent>
       </Dialog>
     );
-  }, [detailedSummaryDialog, selectedDocument, summaryLength, isLoading]);
+  }, [
+    detailedSummaryDialog,
+    selectedDocument,
+    summaryLength,
+    isLoading,
+    loadingMessage,
+  ]);
 
   // Función para renderizar mensajes
   const renderMessage = useCallback((message, index) => {
@@ -954,7 +1042,7 @@ const PetAgent = ({
 
   return (
     <>
-      {/* Botón flotante de la mascota */}
+      {/* Botón flotante de la mascota con efecto de neón */}
       <motion.div
         className="fixed bottom-6 z-50"
         style={{
@@ -975,25 +1063,29 @@ const PetAgent = ({
             : {
                 y: 0,
                 opacity: 1,
-                left: "calc(50vw - 32px)", // Centramos el botón
+                left: "calc(50vw - 32px)",
                 right: "auto",
                 x: 0,
               }
         }
         transition={{
           duration: 0.2,
-          ease: [0.4, 0.0, 0.2, 1], // Curva de aceleración personalizada para mayor suavidad
+          ease: [0.4, 0.0, 0.2, 1],
         }}
       >
         <motion.button
-          className="relative flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white shadow-lg shadow-purple-900/30 dark:shadow-purple-500/20 hover:shadow-purple-900/50 dark:hover:shadow-purple-500/40 transition-shadow"
-          whileHover={{ scale: 1.1 }}
+          className="relative flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          style={{
+            boxShadow: "0 0 20px rgba(147, 51, 234, 0.3)",
+          }}
+          whileHover={{
+            scale: 1.1,
+            boxShadow: "0 0 30px rgba(147, 51, 234, 0.5)",
+          }}
           whileTap={{ scale: 0.95 }}
           onClick={handleOpenChat}
         >
-          {/* Efecto de brillo detrás del botón */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-xl animate-pulse" />
-
           <motion.div
             animate={{
               y: [0, -5, 0],
@@ -1006,54 +1098,45 @@ const PetAgent = ({
             }}
             className="relative z-10"
           >
-            <Bot className="w-8 h-8" />
+            <Bot className="w-8 h-8 drop-shadow-lg" />
           </motion.div>
         </motion.button>
       </motion.div>
 
-      {/* Panel de chat */}
+      {/* Panel de chat mejorado */}
       <AnimatePresence mode="sync">
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: [0.4, 0.0, 0.2, 1] }}
+            transition={{ duration: 0.2 }}
           >
             <motion.div
-              className={`relative flex h-[80vh] bg-[#0A0A0F] rounded-2xl shadow-xl overflow-hidden border border-zinc-800/50 transition-all duration-300 ${
-                isContentExpanded ? "w-[90vw] max-w-[1200px]" : "w-[50vw]"
+              className={`relative flex h-[85vh] bg-gradient-to-br from-[#0A0A0F] via-[#0A0A0F] to-[#0A0A0F]/95 rounded-2xl shadow-2xl overflow-hidden border border-zinc-800/50 transition-all duration-300 ${
+                isContentExpanded ? "w-[90vw] max-w-[1200px]" : "w-[500px]"
               }`}
-              style={{
-                width: isContentExpanded ? "90vw" : "50vw",
-                maxWidth: isContentExpanded ? "1200px" : "xl",
-              }}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              transition={{
-                duration: 0.15,
-                ease: [0.4, 0.0, 0.2, 1],
-              }}
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Efecto de gradiente en el fondo */}
-              <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 via-purple-900/20 to-pink-900/20 opacity-50" />
-
-              {/* Orbes flotantes animados */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[10%] left-[15%] w-32 h-32 rounded-full bg-blue-600/10 blur-xl animate-float opacity-60" />
+              {/* Efectos de fondo mejorados */}
+              <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 via-purple-900/10 to-pink-900/10 opacity-30" />
+              <div className="absolute inset-0">
+                <div className="absolute top-[10%] left-[15%] w-32 h-32 rounded-full bg-blue-600/10 blur-2xl animate-float opacity-40" />
                 <div
-                  className="absolute top-[40%] right-[10%] w-24 h-24 rounded-full bg-purple-600/10 blur-xl animate-float opacity-60"
+                  className="absolute top-[40%] right-[10%] w-24 h-24 rounded-full bg-purple-600/10 blur-2xl animate-float opacity-40"
                   style={{ animationDelay: "1s" }}
                 />
                 <div
-                  className="absolute bottom-[20%] left-[25%] w-28 h-28 rounded-full bg-pink-600/10 blur-xl animate-float opacity-60"
+                  className="absolute bottom-[20%] left-[25%] w-28 h-28 rounded-full bg-pink-600/10 blur-2xl animate-float opacity-40"
                   style={{ animationDelay: "2s" }}
                 />
               </div>
 
-              {/* Panel de chat (siempre visible) */}
+              {/* Panel de chat principal */}
               <div
                 className={`relative flex flex-col ${
                   isContentExpanded
@@ -1061,81 +1144,78 @@ const PetAgent = ({
                     : "w-full"
                 }`}
               >
-                {/* Cabecera */}
-                <div className="relative flex items-center justify-between p-4 border-b border-zinc-800/80 bg-zinc-900/80 backdrop-blur-sm z-10">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
-                      <Bot className="w-5 h-5 text-white" />
+                {/* Cabecera mejorada */}
+                <div className="relative flex items-center justify-between p-4 border-b border-zinc-800/80 bg-zinc-900/90 backdrop-blur-sm z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 shadow-lg">
+                      <Bot className="w-6 h-6 text-white drop-shadow" />
                     </div>
-                    <h3 className="font-semibold text-white">
-                      Asistente de Estudio
-                    </h3>
+                    <div>
+                      <h3 className="font-semibold text-white text-lg">
+                        Asistente de Estudio
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        <span className="text-xs text-zinc-400">Activo</span>
+                      </div>
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={handleCloseChat}
-                    className="text-zinc-400 hover:text-white hover:bg-zinc-800/80"
+                    className="rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800/80"
                   >
                     <X className="w-5 h-5" />
                   </Button>
                 </div>
 
-                {/* Área de mensajes */}
-                <ScrollArea className={`relative p-4 z-10 h-[calc(80vh-8rem)]`}>
-                  <div className="space-y-4">
-                    {messages.map((message, index) => {
-                      // Añadimos información sobre contenido generado a los mensajes del asistente
-                      if (
-                        message.role === "assistant" &&
-                        message.id === "options"
-                      ) {
-                        return renderMessage(message, index);
-                      } else if (
-                        message.role === "assistant" &&
-                        message.id === "welcome"
-                      ) {
-                        return renderMessage(
-                          {
-                            ...message,
-                            hasGeneratedContent: generatedContentType !== null,
-                            contentType: generatedContentType,
-                          },
-                          index
-                        );
-                      } else {
-                        return renderMessage(message, index);
-                      }
-                    })}
+                {/* Área de mensajes mejorada */}
+                <ScrollArea className="relative p-6 z-10 h-[calc(85vh-8rem)]">
+                  <div className="space-y-6">
+                    {messages.map((message, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1, duration: 0.2 }}
+                      >
+                        {renderMessage(message, index)}
+                      </motion.div>
+                    ))}
                     {isTyping && (
-                      <div className="flex mb-4">
-                        <div className="bg-zinc-800/50 backdrop-blur-sm text-white rounded-2xl rounded-tl-sm px-4 py-2 max-w-[80%]">
+                      <motion.div
+                        className="flex mb-4"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="bg-zinc-800/50 backdrop-blur-sm text-white rounded-2xl rounded-tl-sm px-6 py-3">
                           <div className="flex space-x-2">
-                            <div className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce" />
+                            <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" />
                             <div
-                              className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce"
+                              className="w-2 h-2 rounded-full bg-purple-400 animate-bounce"
                               style={{ animationDelay: "0.2s" }}
                             />
                             <div
-                              className="w-2 h-2 rounded-full bg-zinc-400 animate-bounce"
+                              className="w-2 h-2 rounded-full bg-pink-400 animate-bounce"
                               style={{ animationDelay: "0.4s" }}
                             />
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                   <div ref={messagesEndRef} />
                 </ScrollArea>
 
-                {/* Área de entrada */}
-                <div className="relative p-4 border-t border-zinc-800/80 bg-zinc-900/80 backdrop-blur-sm z-10">
+                {/* Área de entrada mejorada */}
+                <div className="relative p-4 border-t border-zinc-800/80 bg-zinc-900/90 backdrop-blur-sm z-10">
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleSendMessage();
                     }}
-                    className="flex gap-2"
+                    className="flex gap-3"
                   >
                     <Input
                       ref={inputRef}
@@ -1143,13 +1223,13 @@ const PetAgent = ({
                       placeholder="Escribe un mensaje..."
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      className="flex-1 bg-zinc-800/50 border-zinc-700 focus-visible:ring-purple-500"
+                      className="flex-1 bg-zinc-800/50 border-zinc-700 rounded-xl focus-visible:ring-purple-500/50 placeholder:text-zinc-500"
                     />
                     <Button
                       type="submit"
                       size="icon"
                       disabled={isTyping || !input.trim()}
-                      className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white hover:opacity-90"
+                      className="rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white hover:opacity-90 transition-opacity duration-200 disabled:opacity-50"
                     >
                       <Send className="h-5 w-5" />
                     </Button>
@@ -1157,7 +1237,7 @@ const PetAgent = ({
                 </div>
               </div>
 
-              {/* Panel de contenido generado (visible solo cuando está expandido) */}
+              {/* Panel de contenido generado (mantener el resto igual) */}
               {isContentExpanded && (
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
@@ -1200,7 +1280,7 @@ const PetAgent = ({
         )}
       </AnimatePresence>
 
-      {/* Diálogo para generar flashcards */}
+      {/* Mantener los diálogos existentes */}
       {renderFlashcardDialog()}
       {renderSummaryDialog()}
       {renderDetailedSummaryDialog()}

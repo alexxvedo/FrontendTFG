@@ -3,6 +3,10 @@ import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -20,190 +24,507 @@ import Color from "@tiptap/extension-color";
 import TextStyle from "@tiptap/extension-text-style";
 import Placeholder from "@tiptap/extension-placeholder";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
+import { motion } from "framer-motion";
 import {
-  FaBold,
-  FaItalic,
-  FaUnderline as FaUnderlineIcon,
-  FaStrikethrough,
-  FaHighlighter,
-  FaListUl,
-  FaListOl,
-  FaQuoteRight,
-  FaAlignLeft,
-  FaAlignCenter,
-  FaAlignRight,
-  FaCode,
-  FaHeading,
-  FaImage,
-  FaLink,
-  FaTable,
-  FaRulerHorizontal,
-  FaPalette,
-  FaFont,
-  FaUndo,
-  FaRedo,
-  FaHeading as FaH1,
-  FaHeading as FaH2,
-  FaHeading as FaH3,
-} from "react-icons/fa";
-import {
-  MdFormatColorText,
-  MdFormatSize,
-  MdOutlineInsertPageBreak,
-  MdOutlineTableChart,
-  MdCheck,
-  MdClear,
-  MdAdd,
-  MdDelete,
-  MdOutlineColorLens,
-} from "react-icons/md";
-import { Tooltip } from "@/components/ui/tooltip";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
+import {
+  TooltipProvider,
+  TooltipContent as TooltipContentProvider,
+  TooltipTrigger as TooltipTriggerProvider,
+} from "@/components/ui/tooltip";
+import {
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  List,
+  ListOrdered,
+  Quote,
+  Undo,
+  Redo,
+  Heading1,
+  Heading2,
+  Heading3,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Table as TableIcon,
+  Minus,
+  Underline as UnderlineIcon,
+  Highlighter,
+  Type,
+  MoreHorizontal,
+  Palette,
+  FileDown,
+  Printer,
+  FileText,
+} from "lucide-react";
 
-const cursorPluginKey = new PluginKey("cursor");
+const COLORS = [
+  "#958DF1",
+  "#F98181",
+  "#FBBC88",
+  "#FAF594",
+  "#70CFF8",
+  "#94FADB",
+  "#B9F18D",
+];
+
+// Función para exportar a PDF
+const exportToPDF = async (editor, title = "Documento") => {
+  try {
+    // Importación dinámica para evitar errores de SSR
+    const jsPDF = (await import("jspdf")).default;
+    const html2canvas = (await import("html2canvas")).default;
+
+    // Obtener el contenido del editor
+    const editorElement = document.querySelector(".ProseMirror");
+    if (!editorElement) {
+      toast.error("No se pudo encontrar el contenido del editor");
+      return;
+    }
+
+    // Crear un contenedor temporal para el contenido
+    const tempContainer = document.createElement("div");
+    tempContainer.style.position = "absolute";
+    tempContainer.style.left = "-9999px";
+    tempContainer.style.top = "-9999px";
+    tempContainer.style.width = "210mm"; // A4 width
+    tempContainer.style.padding = "20mm";
+    tempContainer.style.backgroundColor = "white";
+    tempContainer.style.fontFamily = "Arial, sans-serif";
+    tempContainer.style.fontSize = "14px";
+    tempContainer.style.lineHeight = "1.6";
+    tempContainer.style.color = "#000000";
+
+    // Clonar el contenido del editor
+    const clonedContent = editorElement.cloneNode(true);
+    tempContainer.appendChild(clonedContent);
+
+    // Aplicar estilos específicos para PDF
+    const style = document.createElement("style");
+    style.textContent = `
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .ProseMirror {
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+        color: #000000 !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 14px !important;
+        line-height: 1.6 !important;
+      }
+      
+      h1 { 
+        font-size: 24px !important; 
+        margin: 20px 0 10px 0 !important; 
+        font-weight: bold !important;
+        color: #000000 !important;
+      }
+      
+      h2 { 
+        font-size: 20px !important; 
+        margin: 16px 0 8px 0 !important; 
+        font-weight: bold !important;
+        color: #000000 !important;
+      }
+      
+      h3 { 
+        font-size: 16px !important; 
+        margin: 12px 0 6px 0 !important; 
+        font-weight: bold !important;
+        color: #000000 !important;
+      }
+      
+      p { 
+        margin: 8px 0 !important; 
+        color: #000000 !important;
+      }
+      
+      ul, ol { 
+        margin: 8px 0 !important; 
+        padding-left: 20px !important; 
+        color: #000000 !important;
+      }
+      
+      li {
+        margin: 4px 0 !important;
+        color: #000000 !important;
+      }
+      
+      blockquote { 
+        margin: 12px 0 !important; 
+        padding-left: 16px !important; 
+        border-left: 4px solid #ccc !important; 
+        font-style: italic !important; 
+        color: #000000 !important;
+      }
+      
+      table { 
+        border-collapse: collapse !important; 
+        width: 100% !important; 
+        margin: 12px 0 !important; 
+      }
+      
+      td, th { 
+        border: 1px solid #ccc !important; 
+        padding: 8px !important; 
+        text-align: left !important;
+        color: #000000 !important;
+      }
+      
+      th { 
+        background-color: #f5f5f5 !important; 
+        font-weight: bold !important; 
+      }
+      
+      img { 
+        max-width: 100% !important; 
+        height: auto !important; 
+        margin: 12px 0 !important; 
+        display: block !important;
+      }
+      
+      code {
+        background-color: #f5f5f5 !important;
+        padding: 2px 4px !important;
+        border-radius: 3px !important;
+        font-family: monospace !important;
+        color: #000000 !important;
+      }
+      
+      pre {
+        background-color: #f5f5f5 !important;
+        padding: 12px !important;
+        border-radius: 4px !important;
+        margin: 12px 0 !important;
+        overflow-x: auto !important;
+      }
+      
+      pre code {
+        background: none !important;
+        padding: 0 !important;
+      }
+      
+      strong {
+        font-weight: bold !important;
+        color: #000000 !important;
+      }
+      
+      em {
+        font-style: italic !important;
+        color: #000000 !important;
+      }
+      
+      u {
+        text-decoration: underline !important;
+        color: #000000 !important;
+      }
+      
+      s {
+        text-decoration: line-through !important;
+        color: #000000 !important;
+      }
+      
+      a {
+        color: #0066cc !important;
+        text-decoration: underline !important;
+      }
+      
+      mark {
+        background-color: #ffff00 !important;
+        color: #000000 !important;
+        padding: 1px 2px !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(tempContainer);
+
+    // Esperar un momento para que se apliquen los estilos
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Generar el canvas con opciones mejoradas
+    const canvas = await html2canvas(tempContainer, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+      removeContainer: false,
+      foreignObjectRendering: false,
+      imageTimeout: 0,
+      ignoreElements: (element) => {
+        // Ignorar imágenes que no se pueden cargar
+        if (
+          element.tagName === "IMG" &&
+          element.src &&
+          element.src.startsWith("http")
+        ) {
+          return true;
+        }
+        return false;
+      },
+    });
+
+    // Crear el PDF
+    const pdf = new jsPDF("p", "mm", "a4");
+    const imgWidth = 210; // A4 width in mm
+    const pageHeight = 295; // A4 height in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    // Añadir la primera página
+    pdf.addImage(
+      canvas.toDataURL("image/png"),
+      "PNG",
+      0,
+      position,
+      imgWidth,
+      imgHeight
+    );
+    heightLeft -= pageHeight;
+
+    // Añadir páginas adicionales si es necesario
+    while (heightLeft >= 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        position,
+        imgWidth,
+        imgHeight
+      );
+      heightLeft -= pageHeight;
+    }
+
+    // Limpiar
+    document.body.removeChild(tempContainer);
+    document.head.removeChild(style);
+
+    // Descargar el PDF
+    pdf.save(`${title}.pdf`);
+    toast.success("PDF exportado correctamente");
+  } catch (error) {
+    console.error("Error al exportar PDF:", error);
+    toast.error("Error al exportar el PDF: " + error.message);
+  }
+};
+
+// Función para calcular el color de contraste
+const getContrastColor = (hexColor) => {
+  // Convertir el color hex a RGB
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+
+  // Calcular la luminancia (fórmula estándar)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  // Retornar blanco o negro según la luminancia
+  return luminance > 0.5 ? "#000000" : "#FFFFFF";
+};
+
+// Mapa para mantener un registro de colores asignados
+const usedColors = new Map();
+
+// Función para obtener un color único para cada usuario
+const getColorForUser = (user) => {
+  if (!user) return COLORS[0];
+
+  const userId = user.email || user.name || "anonymous";
+
+  // Si el usuario ya tiene un color asignado, devolver ese color
+  if (usedColors.has(userId)) {
+    return usedColors.get(userId);
+  }
+
+  // Obtener todos los colores actualmente en uso
+  const usedColorSet = new Set(usedColors.values());
+
+  // Encontrar el primer color disponible
+  const availableColor =
+    COLORS.find((color) => !usedColorSet.has(color)) || COLORS[0];
+
+  // Si todos los colores están en uso, liberar los colores de usuarios desconectados
+  if (usedColorSet.size >= COLORS.length) {
+    const connectedUsers = new Set(
+      Array.from(provider?.awareness?.getStates().values() || []).map(
+        (state) => state.user?.email || state.user?.name || "anonymous"
+      )
+    );
+
+    // Limpiar colores de usuarios desconectados
+    for (const [storedUserId, color] of usedColors.entries()) {
+      if (!connectedUsers.has(storedUserId)) {
+        usedColors.delete(storedUserId);
+      }
+    }
+  }
+
+  // Asignar y guardar el color para este usuario
+  usedColors.set(userId, availableColor);
+  return availableColor;
+};
+
+// Función para limpiar el color cuando un usuario se desconecta
+const cleanupUserColor = (user) => {
+  if (!user) return;
+  const userId = user.email || user.name || "anonymous";
+  usedColors.delete(userId);
+};
+
+const getInitials = (name) => {
+  if (!name) return "?";
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
+  return initials.toUpperCase();
+};
 
 const TiptapEditor = ({
-  content,
+  content: initialContent,
   onChange,
-  onCursorUpdate,
-  cursors,
   placeholder = "Empieza a escribir...",
+  noteId,
+  noteTitle = "Documento",
 }) => {
-  const [localCursors, setLocalCursors] = useState(new Map());
+  const { data: session } = useSession();
+  const [provider, setProvider] = useState(null);
+  const [ydoc] = useState(() => new Y.Doc());
   const [linkUrl, setLinkUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [tableSize, setTableSize] = useState({ rows: 3, cols: 3 });
   const [hoveredCell, setHoveredCell] = useState({ row: 0, col: 0 });
+  const [lastSavedContent, setLastSavedContent] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const { data: session } = useSession();
-
-  // Sincronizar los cursors externos con el estado local
+  // Inicializar el provider
   useEffect(() => {
-    if (cursors) {
-      console.log("Actualizando cursores locales:", Array.from(cursors.entries()));
-      setLocalCursors(new Map(cursors));
-    }
-  }, [cursors]);
+    if (!session?.user?.email) return;
 
-  // Log cursor updates for debugging
-  useEffect(() => {
-    if (localCursors.size > 0) {
-      console.log(
-        "Current cursors in editor:",
-        Array.from(localCursors.entries()).map(([id, data]) => ({
-          id,
-          name: data.userData?.name,
-          email: data.userData?.email,
-          position: data.cursor
-            ? `${data.cursor.from}-${data.cursor.to}`
-            : "unknown",
-        }))
+    const userColor = getColorForUser(session.user);
+    const wsProvider = new WebsocketProvider(
+      process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:1234",
+      `note.${noteId}`,
+      ydoc,
+      {
+        params: {
+          user: {
+            name: session.user.name,
+            email: session.user.email,
+            image: session.user.image,
+            color: userColor,
+          },
+        },
+      }
+    );
+
+    // Establecer el estado inicial del usuario
+    wsProvider.awareness.setLocalStateField("user", {
+      name: session.user.name,
+      color: userColor,
+      avatar: session.user.image,
+    });
+
+    setProvider(wsProvider);
+
+    return () => {
+      cleanupUserColor(session.user);
+      wsProvider.destroy();
+    };
+  }, [noteId, session]);
+
+  // Función para guardar el contenido
+  const saveContent = async (contentToSave) => {
+    if (!noteId || noteId === "new" || isSaving) return;
+
+    try {
+      setIsSaving(true);
+      const contentString =
+        typeof contentToSave === "object"
+          ? JSON.stringify(contentToSave)
+          : contentToSave;
+
+      await api.notes.update(
+        window.location.pathname.split("/")[2], // workspaceId
+        window.location.pathname.split("/")[4], // collectionId
+        parseInt(noteId),
+        {
+          content: contentString,
+        }
       );
+
+      setLastSavedContent(contentString);
+      console.log("Contenido guardado automáticamente");
+    } catch (error) {
+      console.error("Error al guardar automáticamente:", error);
+      toast.error("Error al guardar automáticamente");
+    } finally {
+      setIsSaving(false);
     }
-  }, [localCursors]);
+  };
 
-  // Crear extensión de cursor simplificada
-  const CursorExtensionSimple = Extension.create({
-    name: "cursor",
-    addOptions() {
-      return {
-        cursors: localCursors,
-        onCursorUpdate: () => {},
-      };
-    },
-    onCreate() {
-      let debounceTimeout;
-      const updateCursorPosition = (editor) => {
-        const { from, to } = editor.state.selection;
-        clearTimeout(debounceTimeout);
-        debounceTimeout = setTimeout(() => {
-          const { onCursorUpdate } = this.options;
-          if (onCursorUpdate) {
-            onCursorUpdate({ from, to });
-          }
-        }, 50);
-      };
+  // Configurar el autoguardado
+  useEffect(() => {
+    if (!noteId || noteId === "new") return;
 
-      this.editor.on("selectionUpdate", ({ editor }) => {
-        updateCursorPosition(editor);
-      });
+    const interval = setInterval(() => {
+      if (!editor) return;
 
-      this.editor.on("focus", ({ editor }) => {
-        updateCursorPosition(editor);
-      });
-    },
-    addProseMirrorPlugins() {
-      const { cursors } = this.options;
-      return [
-        new Plugin({
-          key: cursorPluginKey,
-          state: {
-            init() {
-              return DecorationSet.empty;
-            },
-            apply(tr, old) {
-              const decorations = [];
-              
-              if (cursors) {
-                cursors.forEach(({ userData, cursor }, userId) => {
-                  if (cursor && userData && userData.email !== session?.user?.email) {
-                    try {
-                      // Generar color basado en el email
-                      const hue = Math.abs(
-                        userData.email
-                          .split("")
-                          .reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                      ) % 360;
-                      const cursorColor = `hsl(${hue}, 70%, 50%)`;
-                      
-                      // Añadir selección si existe
-                      if (cursor.from !== cursor.to) {
-                        decorations.push(
-                          Decoration.inline(cursor.from, cursor.to, {
-                            class: "user-selection",
-                            style: `background-color: hsla(${hue}, 70%, 50%, 0.3)`,
-                          })
-                        );
-                      }
-                      
-                      // Añadir cursor
-                      const cursorElement = document.createElement("div");
-                      cursorElement.className = "remote-cursor";
-                      cursorElement.style.backgroundColor = cursorColor;
-                      
-                      decorations.push(
-                        Decoration.widget(cursor.to, () => cursorElement, {
-                          key: `cursor-${userId}`,
-                        })
-                      );
-                    } catch (error) {
-                      console.error("Error rendering cursor:", error);
-                    }
-                  }
-                });
-              }
-              
-              return DecorationSet.create(tr.doc, decorations);
-            },
-          },
-          props: {
-            decorations(state) {
-              return this.getState(state);
-            },
-          },
-        }),
-      ];
-    },
-  });
+      const currentContent = editor.getJSON();
+      const currentContentString = JSON.stringify(currentContent);
+
+      if (currentContentString !== lastSavedContent) {
+        saveContent(currentContent);
+      }
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(interval);
+  }, [noteId, lastSavedContent]);
+
+  // Actualizar lastSavedContent cuando se carga el contenido inicial
+  useEffect(() => {
+    if (initialContent) {
+      const contentString =
+        typeof initialContent === "object"
+          ? JSON.stringify(initialContent)
+          : initialContent;
+      setLastSavedContent(contentString);
+    }
+  }, []);
+
+  // Manejar cambios en el editor
+  const handleUpdate = ({ editor }) => {
+    const json = editor.getJSON();
+    onChange(json);
+  };
 
   const editor = useEditor(
     {
@@ -215,9 +536,10 @@ const TiptapEditor = ({
           codeBlock: {
             HTMLAttributes: {
               class:
-                "bg-gray-900 rounded-md p-4 font-mono text-sm my-4 overflow-x-auto",
+                "bg-muted rounded-lg p-4 font-mono text-sm my-4 overflow-x-auto border border-border",
             },
           },
+          history: false,
         }),
         Underline,
         TextAlign.configure({
@@ -226,18 +548,22 @@ const TiptapEditor = ({
         Highlight.configure({
           multicolor: true,
         }),
-        Image,
+        Image.configure({
+          HTMLAttributes: {
+            class: "rounded-lg border border-border max-w-full",
+          },
+        }),
         Link.configure({
           openOnClick: true,
           HTMLAttributes: {
             class:
-              "text-white hover:text-gray-300 underline decoration-gray-400/30 underline-offset-2 transition-colors",
+              "text-primary underline hover:text-primary/80 cursor-pointer",
           },
         }),
         Table.configure({
           resizable: true,
           HTMLAttributes: {
-            class: "border-collapse table-auto w-full",
+            class: "border-collapse table-auto w-full my-4",
           },
         }),
         TableRow.configure({
@@ -248,12 +574,12 @@ const TiptapEditor = ({
         TableHeader.configure({
           HTMLAttributes: {
             class:
-              "border-b-2 border-border bg-card/50 font-bold text-left p-2",
+              "border-b-2 border-border bg-muted font-semibold text-left p-3",
           },
         }),
         TableCell.configure({
           HTMLAttributes: {
-            class: "border border-border p-2",
+            class: "border border-border p-3",
           },
         }),
         Color,
@@ -264,779 +590,658 @@ const TiptapEditor = ({
         }),
         HorizontalRule.configure({
           HTMLAttributes: {
-            class: "border-t border-border my-6",
+            class: "border-t-2 border-border my-8",
           },
         }),
-        CursorExtensionSimple.configure({
-          cursors: localCursors,
-          onCursorUpdate,
-        }),
+        ...(provider
+          ? [
+              Collaboration.configure({
+                document: ydoc,
+              }),
+              CollaborationCursor.configure({
+                provider: provider,
+                user: session?.user
+                  ? {
+                      name: session.user.name,
+                      color: getColorForUser(session.user),
+                      avatar: session.user.image,
+                    }
+                  : null,
+              }),
+            ]
+          : []),
       ],
-      content,
-      onUpdate: ({ editor }) => {
-        const json = editor.getJSON();
-        onChange(json);
-      },
+      onUpdate: handleUpdate,
       editorProps: {
         attributes: {
           class:
-            "prose prose-invert prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none",
+            "editor-content focus:outline-none min-h-[calc(100vh-200px)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6 max-w-none sm:max-w-4xl mx-auto w-full",
         },
       },
     },
-    [localCursors]
+    [provider, ydoc, session?.user]
   );
 
-  // Update editor content when the content prop changes
-  useEffect(() => {
-    if (editor && content) {
-      // Only update if the content is different to avoid infinite loops
-      const currentContent = editor.getJSON();
-      const stringifiedCurrent = JSON.stringify(currentContent);
-      const stringifiedNew = JSON.stringify(content);
-
-      if (stringifiedCurrent !== stringifiedNew) {
-        console.log("Updating editor content:", content);
-        editor.commands.setContent(content);
-      }
-    }
-  }, [editor, content]);
-
   if (!editor) {
-    return null;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
-  const menuGroups = [
-    {
-      title: "Texto",
-      items: [
-        {
-          icon: <FaH1 className="text-sm" />,
-          title: "Título 1",
-          action: () =>
-            editor.chain().focus().toggleHeading({ level: 1 }).run(),
-          isActive: () => editor.isActive("heading", { level: 1 }),
-        },
-        {
-          icon: <FaH2 className="text-xs" />,
-          title: "Título 2",
-          action: () =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run(),
-          isActive: () => editor.isActive("heading", { level: 2 }),
-        },
-        {
-          icon: (
-            <FaH3 className="text-xs" style={{ transform: "scale(0.9)" }} />
-          ),
-          title: "Título 3",
-          action: () =>
-            editor.chain().focus().toggleHeading({ level: 3 }).run(),
-          isActive: () => editor.isActive("heading", { level: 3 }),
-        },
-        {
-          icon: <FaBold />,
-          title: "Negrita",
-          action: () => editor.chain().focus().toggleBold().run(),
-          isActive: () => editor.isActive("bold"),
-        },
-        {
-          icon: <FaItalic />,
-          title: "Cursiva",
-          action: () => editor.chain().focus().toggleItalic().run(),
-          isActive: () => editor.isActive("italic"),
-        },
-        {
-          icon: <FaUnderlineIcon />,
-          title: "Subrayado",
-          action: () => editor.chain().focus().toggleUnderline().run(),
-          isActive: () => editor.isActive("underline"),
-        },
-        {
-          icon: <FaStrikethrough />,
-          title: "Tachado",
-          action: () => editor.chain().focus().toggleStrike().run(),
-          isActive: () => editor.isActive("strike"),
-        },
-        {
-          type: "color-picker",
-          icon: <MdFormatColorText className="text-lg" />,
-          title: "Color de texto",
-          action: (color) => editor.chain().focus().setColor(color).run(),
-          isActive: () => editor.isActive("textStyle"),
-        },
-        {
-          icon: <FaHighlighter />,
-          title: "Resaltar",
-          action: () => editor.chain().focus().toggleHighlight().run(),
-          isActive: () => editor.isActive("highlight"),
-        },
-      ],
-    },
-    {
-      title: "Párrafo",
-      items: [
-        {
-          icon: <FaAlignLeft />,
-          title: "Alinear a la izquierda",
-          action: () => editor.chain().focus().setTextAlign("left").run(),
-          isActive: () => editor.isActive({ textAlign: "left" }),
-        },
-        {
-          icon: <FaAlignCenter />,
-          title: "Centrar",
-          action: () => editor.chain().focus().setTextAlign("center").run(),
-          isActive: () => editor.isActive({ textAlign: "center" }),
-        },
-        {
-          icon: <FaAlignRight />,
-          title: "Alinear a la derecha",
-          action: () => editor.chain().focus().setTextAlign("right").run(),
-          isActive: () => editor.isActive({ textAlign: "right" }),
-        },
-        {
-          icon: <FaListUl />,
-          title: "Lista con viñetas",
-          action: () => editor.chain().focus().toggleBulletList().run(),
-          isActive: () => editor.isActive("bulletList"),
-        },
-        {
-          icon: <FaListOl />,
-          title: "Lista numerada",
-          action: () => editor.chain().focus().toggleOrderedList().run(),
-          isActive: () => editor.isActive("orderedList"),
-        },
-        {
-          icon: <FaQuoteRight />,
-          title: "Cita",
-          action: () => editor.chain().focus().toggleBlockquote().run(),
-          isActive: () => editor.isActive("blockquote"),
-        },
-        {
-          icon: <FaRulerHorizontal />,
-          title: "Línea horizontal",
-          action: () => editor.chain().focus().setHorizontalRule().run(),
-        },
-      ],
-    },
-    {
-      title: "Insertar",
-      items: [
-        {
-          type: "image",
-          icon: <FaImage />,
-          title: "Insertar imagen",
-        },
-        {
-          type: "link",
-          icon: <FaLink />,
-          title: "Insertar enlace",
-        },
-        {
-          type: "table",
-          icon: <FaTable />,
-          title: "Insertar tabla",
-          action: () =>
-            editor
-              .chain()
-              .focus()
-              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-              .run(),
-        },
-        {
-          icon: <FaCode />,
-          title: "Bloque de código",
-          action: () => editor.chain().focus().toggleCodeBlock().run(),
-          isActive: () => editor.isActive("codeBlock"),
-        },
-      ],
-    },
-    {
-      title: "Historial",
-      items: [
-        {
-          icon: <FaUndo />,
-          title: "Deshacer",
-          action: () => editor.chain().focus().undo().run(),
-          disabled: () => !editor.can().undo(),
-        },
-        {
-          icon: <FaRedo />,
-          title: "Rehacer",
-          action: () => editor.chain().focus().redo().run(),
-          disabled: () => !editor.can().redo(),
-        },
-      ],
-    },
-  ];
-
-  const addImage = () => {
-    if (imageUrl) {
-      editor.chain().focus().setImage({ src: imageUrl }).run();
-      setImageUrl("");
-    }
-  };
-
-  const setLink = () => {
-    if (linkUrl) {
-      editor.chain().focus().setLink({ href: linkUrl }).run();
-      setLinkUrl("");
-    } else {
-      editor.chain().focus().unsetLink().run();
-    }
-  };
-
   return (
-    <div className="relative min-h-[500px] w-full max-w-screen mx-auto px-4">
-      {/* Bubble menu that appears when text is selected */}
-      <BubbleMenu
-        editor={editor}
-        tippyOptions={{
-          duration: 150,
-          placement: "top",
-          theme: "dark",
-        }}
-        className="bg-card rounded-lg shadow-xl border border-border flex p-1 backdrop-blur-sm"
+    <div className="h-full flex flex-col bg-background">
+      {/* Toolbar mejorada y más limpia */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border"
       >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={`h-8 w-8 p-1 ${
-            editor.isActive("bold")
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground"
-          }`}
-        >
-          <FaBold size={14} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={`h-8 w-8 p-1 ${
-            editor.isActive("italic")
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground"
-          }`}
-        >
-          <FaItalic size={14} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={`h-8 w-8 p-1 ${
-            editor.isActive("underline")
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground"
-          }`}
-        >
-          <FaUnderlineIcon size={14} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => editor.chain().focus().toggleHighlight().run()}
-          className={`h-8 w-8 p-1 ${
-            editor.isActive("highlight")
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground"
-          }`}
-        >
-          <FaHighlighter size={14} />
-        </Button>
-        <Separator orientation="vertical" className="mx-1 h-6 bg-border" />
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 p-1 ${
-                editor.isActive("link")
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground"
-              }`}
-            >
-              <FaLink size={14} />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-3 bg-card border-border">
-            <div className="space-y-2">
-              <Label
-                htmlFor="bubble-link-url"
-                className="text-xs text-muted-foreground"
+        <div className="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3">
+          {/* Grupo principal de herramientas */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+            {/* Formato de texto */}
+            <div className="flex items-center gap-1 mr-1 sm:mr-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${
+                  editor.isActive("bold")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
               >
-                URL del enlace
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="bubble-link-url"
-                  placeholder="https://ejemplo.com"
-                  className="h-8 bg-muted border-border text-muted-foreground"
-                  defaultValue={
-                    editor.isActive("link")
-                      ? editor.getAttributes("link").href
-                      : ""
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const url = e.target.value;
-                      if (url) {
-                        editor.chain().focus().setLink({ href: url }).run();
-                      }
-                      e.target
-                        .closest("[data-radix-popper-content-wrapper]")
-                        .querySelector('button[aria-label="Close"]')
-                        .click();
-                    }
-                  }}
+                <Bold className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${
+                  editor.isActive("italic")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <Italic className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${
+                  editor.isActive("underline")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <UnderlineIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleStrike().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 hidden sm:flex ${
+                  editor.isActive("strike")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <Strikethrough className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleHighlight().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 hidden sm:flex ${
+                  editor.isActive("highlight")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <Highlighter className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
+
+            <Separator
+              orientation="vertical"
+              className="h-4 sm:h-6 mx-1 sm:mx-2"
+            />
+
+            {/* Títulos */}
+            <div className="flex items-center gap-1 mr-1 sm:mr-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 1 }).run()
+                }
+                className={`h-7 sm:h-8 px-1 sm:px-2 text-xs font-semibold ${
+                  editor.isActive("heading", { level: 1 })
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                H1
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 2 }).run()
+                }
+                className={`h-7 sm:h-8 px-1 sm:px-2 text-xs font-semibold ${
+                  editor.isActive("heading", { level: 2 })
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                H2
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  editor.chain().focus().toggleHeading({ level: 3 }).run()
+                }
+                className={`h-7 sm:h-8 px-1 sm:px-2 text-xs font-semibold hidden sm:flex ${
+                  editor.isActive("heading", { level: 3 })
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                H3
+              </Button>
+            </div>
+
+            <Separator
+              orientation="vertical"
+              className="h-4 sm:h-6 mx-1 sm:mx-2"
+            />
+
+            {/* Listas y alineación */}
+            <div className="flex items-center gap-1 mr-1 sm:mr-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${
+                  editor.isActive("bulletList")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <List className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 ${
+                  editor.isActive("orderedList")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <ListOrdered className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                className={`h-7 w-7 sm:h-8 sm:w-8 p-0 hidden sm:flex ${
+                  editor.isActive("blockquote")
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <Quote className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
+
+            {/* Alineación - Solo en pantallas grandes */}
+            <div className="hidden lg:flex items-center gap-1 mr-2">
+              <Separator orientation="vertical" className="h-6 mx-2" />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("left").run()
+                }
+                className={`h-8 w-8 p-0 ${
+                  editor.isActive({ textAlign: "left" })
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <AlignLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("center").run()
+                }
+                className={`h-8 w-8 p-0 ${
+                  editor.isActive({ textAlign: "center" })
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <AlignCenter className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("right").run()
+                }
+                className={`h-8 w-8 p-0 ${
+                  editor.isActive({ textAlign: "right" })
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <AlignRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Insertar elementos - Solo en pantallas medianas y grandes */}
+            <div className="hidden md:flex items-center gap-1">
+              <Separator orientation="vertical" className="h-6 mx-2" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-accent"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="link" className="text-sm font-medium">
+                        Enlace
+                      </Label>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          id="link"
+                          value={linkUrl}
+                          onChange={(e) => setLinkUrl(e.target.value)}
+                          placeholder="https://ejemplo.com"
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={() => {
+                            if (linkUrl) {
+                              editor
+                                .chain()
+                                .focus()
+                                .setLink({ href: linkUrl })
+                                .run();
+                              setLinkUrl("");
+                            }
+                          }}
+                          disabled={!linkUrl}
+                          size="sm"
+                        >
+                          Agregar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-accent"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="image" className="text-sm font-medium">
+                        URL de la imagen
+                      </Label>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          id="image"
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
+                          placeholder="https://ejemplo.com/imagen.jpg"
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={() => {
+                            if (imageUrl) {
+                              editor
+                                .chain()
+                                .focus()
+                                .setImage({ src: imageUrl })
+                                .run();
+                              setImageUrl("");
+                            }
+                          }}
+                          disabled={!imageUrl}
+                          size="sm"
+                        >
+                          Agregar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Usuarios conectados y exportar */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Botón de exportar PDF */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => exportToPDF(editor, noteTitle)}
+                  className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-accent"
+                >
+                  <FileDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Exportar a PDF</TooltipContent>
+            </Tooltip>
+
+            {/* Historial - Solo disponible en modo individual */}
+            {!provider && (
+              <>
+                <div className="hidden sm:flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => editor.chain().focus().undo().run()}
+                    disabled={!editor.can().undo()}
+                    className="h-8 w-8 p-0 hover:bg-accent disabled:opacity-50"
+                  >
+                    <Undo className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => editor.chain().focus().redo().run()}
+                    disabled={!editor.can().redo()}
+                    className="h-8 w-8 p-0 hover:bg-accent disabled:opacity-50"
+                  >
+                    <Redo className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Separator
+                  orientation="vertical"
+                  className="h-6 hidden sm:block"
                 />
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => {
-                    const url =
-                      document.getElementById("bubble-link-url").value;
-                    if (url) {
-                      editor.chain().focus().setLink({ href: url }).run();
-                    }
-                  }}
-                  className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  <MdCheck size={16} />
-                </Button>
-              </div>
-              {editor.isActive("link") && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() =>
-                    editor.chain().focus().unsetLink().run()
-                  }
-                  className="h-8 bg-red-600 hover:bg-red-700 text-white w-full mt-2"
-                >
-                  Eliminar enlace
-                </Button>
+              </>
+            )}
+
+            {/* Avatares de usuarios conectados */}
+            <div className="flex -space-x-1 sm:-space-x-2">
+              {Array.from(provider?.awareness?.getStates().values() || []).map(
+                (state) => {
+                  const user = state.user || {};
+                  const uniqueKey = `${state.clientID}-${
+                    user.email || user.name || "anonymous"
+                  }`;
+                  const userColor = user.color || getColorForUser(user);
+
+                  return (
+                    <TooltipProvider key={uniqueKey}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Avatar className="h-6 w-6 sm:h-8 sm:w-8 border-2 border-background hover:scale-110 transition-transform cursor-pointer">
+                            {user.avatar ? (
+                              <AvatarImage
+                                src={user.avatar}
+                                alt={user.name}
+                                className="h-full w-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <AvatarFallback
+                                style={{
+                                  backgroundColor: userColor,
+                                  color: getContrastColor(userColor),
+                                  fontSize: "0.6rem",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                {getInitials(user.name)}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" align="center">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: userColor }}
+                            />
+                            <span className="font-medium">
+                              {user.name || "Usuario anónimo"}
+                            </span>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }
               )}
             </div>
-          </PopoverContent>
-        </Popover>
-      </BubbleMenu>
-
-      <div className="border border-border rounded-lg min-h-[500px] min-w-full h-[calc(100vh-8rem)] bg-card/50 backdrop-blur-sm shadow-xl">
-        <div className="sticky top-0 bg-card border-b border-border z-10 backdrop-blur-sm">
-          <div className="tiptap-toolbar flex flex-wrap gap-1 p-2 bg-card border-b border-border rounded-t-lg backdrop-blur-sm">
-            {menuGroups.map((group, groupIndex) => (
-              <div key={groupIndex} className="flex items-center">
-                {groupIndex > 0 && (
-                  <Separator
-                    orientation="vertical"
-                    className="mx-1 h-8 bg-border"
-                  />
-                )}
-                <div className="flex flex-wrap gap-1">
-                  {group.items.map((item, index) => {
-                    if (item.type === "color-picker") {
-                      return (
-                        <Popover key={index}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                                ${
-                                  item.isActive()
-                                    ? "bg-accent text-accent-foreground"
-                                    : "hover:bg-muted text-muted-foreground"
-                                }`}
-                              title={item.title}
-                            >
-                              {item.icon}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-64 p-2 bg-card border-border">
-                            <div className="grid grid-cols-8 gap-1">
-                              {[
-                                "#ff0000",
-                                "#ff7700",
-                                "#ffdd00",
-                                "#00ff00",
-                                "#0000ff",
-                                "#8a2be2",
-                                "#ff00ff",
-                                "#ffffff",
-                                "#ff5555",
-                                "#ff9955",
-                                "#ffee55",
-                                "#55ff55",
-                                "#5555ff",
-                                "#9955ff",
-                                "#ff55ff",
-                                "#cccccc",
-                                "#aa0000",
-                                "#aa5500",
-                                "#aaaa00",
-                                "#00aa00",
-                                "#0000aa",
-                                "#5500aa",
-                                "#aa00aa",
-                                "#555555",
-                                "#550000",
-                                "#553300",
-                                "#555500",
-                                "#005500",
-                                "#000055",
-                                "#330055",
-                                "#550055",
-                                "#000000",
-                              ].map((color) => (
-                                <button
-                                  key={color}
-                                  className="w-6 h-6 rounded-md border border-border hover:scale-110 transition-transform"
-                                  style={{ backgroundColor: color }}
-                                  onClick={() => item.action(color)}
-                                  title={color}
-                                />
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      );
-                    }
-
-                    if (item.type === "image") {
-                      return (
-                        <Popover key={index}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9 hover:bg-muted text-muted-foreground"
-                              title={item.title}
-                            >
-                              {item.icon}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-4 bg-card border-border">
-                            <div className="space-y-4">
-                              <h3 className="text-sm font-medium text-muted-foreground">
-                                Insertar imagen
-                              </h3>
-                              <div className="space-y-2">
-                                <Label
-                                  htmlFor="image-url"
-                                  className="text-xs text-muted-foreground"
-                                >
-                                  URL de la imagen
-                                </Label>
-                                <Input
-                                  id="image-url"
-                                  placeholder="https://ejemplo.com/imagen.jpg"
-                                  value={imageUrl}
-                                  onChange={(e) => setImageUrl(e.target.value)}
-                                  className="h-8 bg-muted border-border text-muted-foreground"
-                                />
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setImageUrl("")}
-                                  className="h-8 text-muted-foreground hover:text-muted-foreground hover:bg-muted"
-                                >
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={addImage}
-                                  disabled={!imageUrl}
-                                  className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-                                >
-                                  Insertar
-                                </Button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      );
-                    }
-
-                    if (item.type === "link") {
-                      return (
-                        <Popover key={index}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                                ${
-                                  editor.isActive("link")
-                                    ? "bg-accent text-accent-foreground"
-                                    : "hover:bg-muted text-muted-foreground"
-                                }`}
-                              title={item.title}
-                            >
-                              {item.icon}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-4 bg-card border-border">
-                            <div className="space-y-4">
-                              <h3 className="text-sm font-medium text-muted-foreground">
-                                {editor.isActive("link")
-                                  ? "Editar enlace"
-                                  : "Insertar enlace"}
-                              </h3>
-                              <div className="space-y-2">
-                                <Label
-                                  htmlFor="link-url"
-                                  className="text-xs text-muted-foreground"
-                                >
-                                  URL del enlace
-                                </Label>
-                                <Input
-                                  id="link-url"
-                                  placeholder="https://ejemplo.com"
-                                  value={linkUrl}
-                                  onChange={(e) => setLinkUrl(e.target.value)}
-                                  className="h-8 bg-muted border-border text-muted-foreground"
-                                />
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                {editor.isActive("link") && (
-                                  <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() =>
-                                      editor.chain().focus().unsetLink().run()
-                                    }
-                                    className="h-8 bg-red-600 hover:bg-red-700 text-white"
-                                  >
-                                    Eliminar
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setLinkUrl("")}
-                                  className="h-8 text-muted-foreground hover:text-muted-foreground hover:bg-muted"
-                                >
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={setLink}
-                                  disabled={!linkUrl && !editor.isActive("link")}
-                                  className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-                                >
-                                  {editor.isActive("link")
-                                    ? "Actualizar"
-                                    : "Insertar"}
-                                </Button>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      );
-                    }
-
-                    if (item.type === "table") {
-                      return (
-                        <Popover key={index}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                                ${
-                                  editor.isActive("table")
-                                    ? "bg-accent text-accent-foreground"
-                                    : "hover:bg-muted text-muted-foreground"
-                                }`}
-                              title={item.title}
-                            >
-                              {item.icon}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-2 bg-card border-border">
-                            {editor.isActive("table") ? (
-                              <div className="grid grid-cols-2 gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().addColumnBefore().run()
-                                  }
-                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                                >
-                                  Añadir columna antes
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().addColumnAfter().run()
-                                  }
-                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                                >
-                                  Añadir columna después
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().deleteColumn().run()
-                                  }
-                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                                >
-                                  Eliminar columna
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().addRowBefore().run()
-                                  }
-                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                                >
-                                  Añadir fila antes
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().addRowAfter().run()
-                                  }
-                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                                >
-                                  Añadir fila después
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().deleteRow().run()
-                                  }
-                                  className="h-8 bg-muted hover:bg-muted/90 text-muted-foreground text-xs"
-                                >
-                                  Eliminar fila
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    editor.chain().focus().deleteTable().run()
-                                  }
-                                  className="h-8 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs col-span-2"
-                                >
-                                  Eliminar tabla
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                                  Selecciona el tamaño de la tabla
-                                </h3>
-                                <div className="space-y-2">
-                                  <div 
-                                    className="table-grid-selector"
-                                    onMouseLeave={() => setHoveredCell({ row: 0, col: 0 })}
-                                  >
-                                    {Array.from({ length: 10 }, (_, rowIndex) => (
-                                      Array.from({ length: 10 }, (_, colIndex) => (
-                                        <div
-                                          key={`${rowIndex}-${colIndex}`}
-                                          className={`table-grid-cell ${
-                                            rowIndex <= hoveredCell.row && colIndex <= hoveredCell.col
-                                              ? "active"
-                                              : ""
-                                          }`}
-                                          onMouseEnter={() => setHoveredCell({ row: rowIndex, col: colIndex })}
-                                          onClick={() => {
-                                            const rows = rowIndex + 1;
-                                            const cols = colIndex + 1;
-                                            setTableSize({ rows, cols });
-                                            editor
-                                              .chain()
-                                              .focus()
-                                              .insertTable({ rows, cols, withHeaderRow: true })
-                                              .run();
-                                          }}
-                                        />
-                                      ))
-                                    )).flat()}
-                                  </div>
-                                  <div className="table-grid-dimensions">
-                                    {hoveredCell.row > 0 || hoveredCell.col > 0
-                                      ? `${hoveredCell.row + 1} × ${hoveredCell.col + 1}`
-                                      : `${tableSize.rows} × ${tableSize.cols}`}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </PopoverContent>
-                        </Popover>
-                      );
-                    }
-
-                    return (
-                      <Button
-                        key={index}
-                        variant="ghost"
-                        size="icon"
-                        onClick={item.action}
-                        disabled={item.disabled ? item.disabled() : false}
-                        className={`p-2 rounded-lg transition-all duration-200 ease-in-out h-9 w-9
-                          ${
-                            item.isActive && item.isActive()
-                              ? "bg-accent text-accent-foreground"
-                              : "hover:bg-muted text-muted-foreground"
-                          }
-                          ${
-                            item.disabled && item.disabled()
-                              ? "opacity-50 cursor-not-allowed"
-                              : ""
-                          }
-                        `}
-                        title={item.title}
-                      >
-                        {item.icon}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
-        <div className="relative overflow-y-auto h-[calc(100%-3rem)]">
-          <EditorContent editor={editor} className="h-full" />
-          <div className="absolute top-2 right-2 flex gap-1">
-            {Array.from(localCursors.entries()).map(([userId, { userData }]) => {
-              if (userData?.email === session?.user?.email) return null;
-              const hue =
-                Math.abs(
-                  userData?.email
-                    ?.split("")
-                    .reduce((acc, char) => acc + char.charCodeAt(0), 0)
-                ) % 360;
-              return (
-                <Tooltip key={userId} content={userData.name}>
-                  <Avatar className="w-6 h-6 border border-border shadow-md">
-                    <AvatarImage src={userData.image} />
-                    <AvatarFallback
-                      className="text-white text-xs"
-                      style={{ backgroundColor: `hsl(${hue}, 70%, 40%)` }}
-                    >
-                      {userData.name[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                </Tooltip>
-              );
-            })}
-          </div>
-        </div>
+      </motion.div>
+
+      {/* Editor content con scroll interno */}
+      <div className="flex-1 overflow-y-auto">
+        <EditorContent editor={editor} className="h-full" />
       </div>
+
+      {/* Estilos mejorados */}
+      <style jsx global>{`
+        .collaboration-cursor__caret {
+          position: relative;
+          margin-left: -1px;
+          margin-right: -1px;
+          border-left: 1px solid;
+          border-right: 1px solid;
+          word-break: normal;
+          pointer-events: none;
+        }
+
+        .collaboration-cursor__label {
+          position: absolute;
+          top: -1.4em;
+          left: -1px;
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 600;
+          line-height: normal;
+          user-select: none;
+          color: #fff;
+          padding: 0.1rem 0.3rem;
+          border-radius: 3px 3px 3px 0;
+          white-space: nowrap;
+          z-index: 50;
+        }
+
+        /* Editor styles mejorados */
+        .ProseMirror {
+          height: auto;
+          color: hsl(var(--foreground));
+          line-height: 1.7;
+          border: 1px solid hsl(var(--border));
+        }
+
+        .ProseMirror-focused {
+          outline: none;
+        }
+
+        .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: hsl(var(--muted-foreground));
+          pointer-events: none;
+          height: 0;
+        }
+
+        .ProseMirror > * + * {
+          margin-top: 0.75em;
+        }
+
+        .ProseMirror ul,
+        .ProseMirror ol {
+          padding: 0 1rem;
+        }
+
+        .ProseMirror h1 {
+          font-size: 2.25em;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-top: 1.5em;
+          margin-bottom: 0.5em;
+          color: hsl(var(--foreground));
+        }
+
+        .ProseMirror h2 {
+          font-size: 1.875em;
+          font-weight: 600;
+          line-height: 1.3;
+          margin-top: 1.25em;
+          margin-bottom: 0.5em;
+          color: hsl(var(--foreground));
+        }
+
+        .ProseMirror h3 {
+          font-size: 1.5em;
+          font-weight: 600;
+          line-height: 1.4;
+          margin-top: 1em;
+          margin-bottom: 0.5em;
+          color: hsl(var(--foreground));
+        }
+
+        .ProseMirror code {
+          background-color: hsl(var(--muted));
+          padding: 0.2rem 0.4rem;
+          border-radius: 4px;
+          font-size: 0.875em;
+          color: hsl(var(--foreground));
+        }
+
+        .ProseMirror pre {
+          background: hsl(var(--muted));
+          border: 1px solid hsl(var(--border));
+          padding: 1rem;
+          border-radius: 8px;
+          margin: 1.5rem 0;
+          overflow-x: auto;
+        }
+
+        .ProseMirror pre code {
+          color: inherit;
+          padding: 0;
+          background: none;
+          font-size: 0.875rem;
+        }
+
+        .ProseMirror blockquote {
+          padding-left: 1rem;
+          border-left: 4px solid hsl(var(--primary));
+          margin: 1.5rem 0;
+          font-style: italic;
+          color: hsl(var(--muted-foreground));
+        }
+
+        .ProseMirror hr {
+          border: none;
+          border-top: 2px solid hsl(var(--border));
+          margin: 3rem 0;
+        }
+
+        .ProseMirror img {
+          max-width: 100%;
+          height: auto;
+          margin: 1.5rem 0;
+          border-radius: 8px;
+        }
+
+        .ProseMirror table {
+          border-collapse: collapse;
+          table-layout: fixed;
+          width: 100%;
+          margin: 1.5rem 0;
+          overflow: hidden;
+          border-radius: 8px;
+          border: 1px solid hsl(var(--border));
+        }
+
+        .ProseMirror td,
+        .ProseMirror th {
+          min-width: 1em;
+          border: 1px solid hsl(var(--border));
+          padding: 0.75rem;
+          vertical-align: top;
+          box-sizing: border-box;
+          position: relative;
+        }
+
+        .ProseMirror th {
+          font-weight: 600;
+          background-color: hsl(var(--muted));
+        }
+
+        .ProseMirror .selectedCell:after {
+          z-index: 2;
+          position: absolute;
+          content: "";
+          left: 0;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          background: hsl(var(--primary) / 0.1);
+          pointer-events: none;
+        }
+
+        .ProseMirror a {
+          color: hsl(var(--primary));
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+
+        .ProseMirror a:hover {
+          color: hsl(var(--primary) / 0.8);
+        }
+
+        /* Selección personalizada */
+        .ProseMirror ::selection {
+          background: hsl(var(--primary) / 0.2);
+        }
+
+        /* Mejoras en el highlight */
+        .ProseMirror mark {
+          background-color: hsl(var(--secondary));
+          padding: 0.125rem 0.25rem;
+          border-radius: 3px;
+        }
+      `}</style>
     </div>
   );
 };

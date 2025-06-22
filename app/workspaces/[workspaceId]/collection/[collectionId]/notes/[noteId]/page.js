@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, FileText, Clock, Users } from "lucide-react";
 import { toast } from "sonner";
-import MarkdownEditor from "@/components/notes/MarkdownEditor";
-// Comentamos la importación del hook de usuarios ya que no usaremos la funcionalidad colaborativa por ahora
-// import { useNoteUsers } from "@/hooks/useNoteUsers";
+import TiptapEditor from "@/components/notes/TiptapEditor";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSession } from "next-auth/react";
+import { motion } from "framer-motion";
 import {
   Tooltip,
   TooltipContent,
@@ -26,9 +25,9 @@ export default function NotePage() {
   const [note, setNote] = useState(null);
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
 
   useEffect(() => {
-    // Flag to prevent multiple loads
     let isMounted = true;
 
     const loadNote = async () => {
@@ -36,24 +35,20 @@ export default function NotePage() {
         if (noteId === "new") {
           if (isMounted) {
             setNote({ noteName: "Nueva nota", content: "" });
-            setContent("");
+            const emptyDocument = {
+              type: "doc",
+              content: [{ type: "paragraph" }],
+            };
+            setContent(emptyDocument);
           }
           return;
         }
 
-        // Extraer el workspaceId de la URL
         const pathParts = window.location.pathname.split("/");
         const urlWorkspaceId = pathParts.includes("workspaces")
           ? pathParts[pathParts.indexOf("workspaces") + 1]
           : workspaceId;
 
-        console.log("Cargando nota con:", {
-          workspaceId: urlWorkspaceId,
-          collectionId,
-          noteId,
-        });
-
-        // Intentar obtener la nota directamente por su ID
         const noteResponse = await api.notes.get(
           urlWorkspaceId,
           collectionId,
@@ -63,26 +58,58 @@ export default function NotePage() {
 
         if (!isMounted) return;
 
-        console.log("Nota cargada directamente:", foundNote);
-
         if (foundNote) {
-          console.log("Nota encontrada:", foundNote);
-          console.log("Tipo de content:", typeof foundNote.content);
-
           setNote(foundNote);
 
           if (!foundNote.content) {
-            setContent("");
+            const emptyDocument = {
+              type: "doc",
+              content: [{ type: "paragraph" }],
+            };
+            setContent(emptyDocument);
           } else if (typeof foundNote.content === "string") {
-            setContent(foundNote.content);
+            try {
+              if (foundNote.content.trim().startsWith("{")) {
+                const parsedContent = JSON.parse(foundNote.content);
+                if (isMounted) {
+                  setContent(parsedContent);
+                }
+              } else {
+                const textDocument = {
+                  type: "doc",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: foundNote.content }],
+                    },
+                  ],
+                };
+                if (isMounted) {
+                  setContent(textDocument);
+                }
+              }
+            } catch (e) {
+              console.error("Error procesando el contenido:", e);
+              const textDocument = {
+                type: "doc",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: foundNote.content }],
+                  },
+                ],
+              };
+              if (isMounted) {
+                setContent(textDocument);
+              }
+            }
           } else if (
             foundNote.content &&
             typeof foundNote.content === "object"
           ) {
-            // If it's an object, assume it's Tiptap JSON and convert to Markdown.
-            // This conversion logic needs to be implemented or imported.
-            // For now, we'll stringify it. A proper conversion utility will be needed here.
-            setContent(JSON.stringify(foundNote.content));
+            if (isMounted) {
+              setContent(foundNote.content);
+            }
           }
         }
       } catch (error) {
@@ -92,14 +119,17 @@ export default function NotePage() {
             "Error al cargar la nota: " + (error.message || "Error desconocido")
           );
 
-          setContent("");
+          const emptyDocument = {
+            type: "doc",
+            content: [{ type: "paragraph" }],
+          };
+          setContent(emptyDocument);
         }
       }
     };
 
     loadNote();
 
-    // Cleanup function to prevent state updates after unmount
     return () => {
       isMounted = false;
     };
@@ -107,32 +137,23 @@ export default function NotePage() {
 
   const handleSave = async () => {
     try {
-      console.log("Guardando contenido:", content);
       setIsSaving(true);
 
-      // Extraer el workspaceId de la URL
       const pathParts = window.location.pathname.split("/");
       const urlWorkspaceId = pathParts.includes("workspaces")
         ? pathParts[pathParts.indexOf("workspaces") + 1]
         : workspaceId;
 
-      const contentToSave = content;
-
-      console.log("Guardando nota con:", {
-        workspaceId: urlWorkspaceId,
-        collectionId,
-        noteId,
-        noteName: note.noteName,
-        contentLength: contentToSave.length,
-      });
+      const contentToSave =
+        typeof content === "object" ? JSON.stringify(content) : content;
 
       await api.notes.update(urlWorkspaceId, collectionId, parseInt(noteId), {
         noteName: note.noteName,
         content: contentToSave,
       });
 
+      setLastSaved(new Date());
       toast.success("Nota guardada correctamente");
-      //router.push(`/workspaces/${workspaceId}/collection/${collectionId}`);
     } catch (error) {
       console.error("Error saving note:", error);
       toast.error(
@@ -143,57 +164,120 @@ export default function NotePage() {
     }
   };
 
-  const handleContentChange = (newContent) => {
-    setContent(newContent);
+  const formatLastSaved = (date) => {
+    if (!date) return "";
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+
+    if (diff < 60) return "Guardado ahora";
+    if (diff < 3600) return `Guardado hace ${Math.floor(diff / 60)} min`;
+    if (diff < 86400) return `Guardado hace ${Math.floor(diff / 3600)} h`;
+    return `Guardado ${date.toLocaleDateString()}`;
   };
 
   return (
-    <div className="flex flex-col min-h-screen h-screen">
-      <div className="flex items-center justify-between px-6 py-4 border-b">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              router.push(
-                `/workspaces/${workspaceId}/collection/${collectionId}`
-              )
-            }
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <input
-            type="text"
-            value={note?.noteName || ""}
-            onChange={(e) => setNote({ ...note, noteName: e.target.value })}
-            className="text-2xl font-semibold bg-transparent border-none focus:outline-none dark:text-white"
-            placeholder="Título de la nota"
-          />
-        </div>
-        <div className="flex items-center gap-6">
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Guardar
-          </Button>
-        </div>
-      </div>
-      <div
-        className="flex-1 overflow-hidden px-6 pt-4 pb-4 max-w-full mx-auto w-full"
-        style={{ height: "calc(100vh - 73px)" }}
+    <div className="flex flex-col h-screen bg-background w-full">
+      {/* Header mejorado con responsive */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border"
       >
-        <div style={{ height: "100%" }}>
-          <MarkdownEditor
+        <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      router.push(
+                        `/workspaces/${workspaceId}/collection/${collectionId}`
+                      )
+                    }
+                    className="hover:bg-accent rounded-lg transition-colors shrink-0"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Volver a la colección</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <input
+                  type="text"
+                  value={note?.noteName || ""}
+                  onChange={(e) =>
+                    setNote({ ...note, noteName: e.target.value })
+                  }
+                  className="text-lg sm:text-xl font-semibold bg-transparent border-none focus:outline-none text-foreground placeholder-muted-foreground w-full min-w-0"
+                  placeholder="Título de la nota..."
+                />
+
+                {lastSaved && (
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mt-1">
+                    <Clock className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {formatLastSaved(lastSaved)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              size="sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm px-3 sm:px-6 rounded-lg transition-all duration-200"
+            >
+              {isSaving ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="h-4 w-4 mr-1 sm:mr-2"
+                >
+                  <Save className="h-4 w-4" />
+                </motion.div>
+              ) : (
+                <Save className="h-4 w-4 mr-1 sm:mr-2" />
+              )}
+              <span className="hidden sm:inline">
+                {isSaving ? "Guardando..." : "Guardar"}
+              </span>
+              <span className="sm:hidden">{isSaving ? "..." : "Guardar"}</span>
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Editor container con scroll interno y responsive */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="flex-1 overflow-hidden w-full"
+      >
+        <div className="h-full w-full">
+          <TiptapEditor
             content={content}
-            noteName={note?.noteName}
-            onChange={handleContentChange}
-            placeholder="Empieza a escribir..."
+            onChange={setContent}
+            noteId={noteId}
+            noteTitle={note?.noteName || "Documento"}
+            placeholder="Comienza a escribir tu nota..."
           />
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
