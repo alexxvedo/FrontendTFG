@@ -36,10 +36,33 @@ export function WorkspaceSocketProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false);
   const [messages, setMessages] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Map());
+  const [agendaUsers, setAgendaUsers] = useState([]);
 
   const socketRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const lastWorkspaceIdRef = useRef(null);
+  const isReconnectingRef = useRef(false);
+  const lastVisibilityChangeRef = useRef(Date.now());
+
+  // Detectar cambios de visibilidad de la pestaña
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      lastVisibilityChangeRef.current = Date.now();
+      if (document.hidden) {
+        console.log("Pestaña oculta");
+      } else {
+        console.log("Pestaña visible de nuevo");
+        // Marcar que la próxima reconexión es debido a cambio de visibilidad
+        isReconnectingRef.current = true;
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   // Limpiar socket al desmontar o cambiar de workspace
   const cleanupSocket = useCallback(() => {
@@ -126,13 +149,25 @@ export function WorkspaceSocketProvider({ children }) {
       console.log("Socket conectado al servidor de workspace");
       setIsConnected(true);
 
-      // Unirse al workspace
+      // Verificar si es una reconexión reciente (dentro de los últimos 30 segundos)
+      const timeSinceVisibilityChange =
+        Date.now() - lastVisibilityChangeRef.current;
+      const isRecentReconnection =
+        isReconnectingRef.current && timeSinceVisibilityChange < 30000;
+
+      // Unirse al workspace con información sobre si es reconexión
       newSocket.emit("join_workspace", workspace.id, {
         id: session.user.id,
         email: session.user.email,
         name: session.user.name,
         image: session.user.image || null,
+        isReconnection: isRecentReconnection,
       });
+
+      // Reset del flag de reconexión
+      if (isReconnectingRef.current) {
+        isReconnectingRef.current = false;
+      }
 
       // Solicitar usuarios de colecciones
       newSocket.emit("get_collections_users", workspace.id);
@@ -152,7 +187,12 @@ export function WorkspaceSocketProvider({ children }) {
 
     // Manejar cuando un usuario se une al workspace
     newSocket.on("user_joined", (userData) => {
-      console.log("Usuario unido:", userData.name);
+      console.log(
+        "Usuario unido:",
+        userData.name,
+        "isReconnection:",
+        userData.isReconnection
+      );
       setConnectedUsers((prev) => {
         // Verificar si el usuario ya está en la lista
         const exists = prev.some((user) => user.email === userData.email);
@@ -165,8 +205,8 @@ export function WorkspaceSocketProvider({ children }) {
         return [...prev, userData];
       });
 
-      // Mostrar notificación
-      if (userData.email !== session.user.email) {
+      // Mostrar notificación solo si no es el usuario actual y no es una reconexión
+      if (userData.email !== session.user.email && !userData.isReconnection) {
         toast.info(`${userData.name} se ha unido al workspace`);
       }
     });
@@ -330,91 +370,154 @@ export function WorkspaceSocketProvider({ children }) {
       console.log("Workspace eliminado:", data);
       const { workspaceId, deletedBy } = data;
       const currentPath = window.location.pathname;
-      
+
       // Mostrar notificación al usuario
       toast.error(
         <div className="flex flex-col gap-1">
           <div className="font-semibold">Espacio de trabajo eliminado</div>
           <div className="text-sm">
-            El espacio de trabajo ha sido eliminado por {deletedBy?.name || "un administrador"}.
+            El espacio de trabajo ha sido eliminado por{" "}
+            {deletedBy?.name || "un administrador"}.
           </div>
         </div>,
         {
           duration: 5000,
         }
       );
-      
+
       // Actualizar el estado global independientemente de dónde esté el usuario
       updateActiveWorkspace(null);
-      
+
       // Eliminar el workspace del estado global para actualizar el sidebar
-      setWorkspaces(prev => {
-        const updatedWorkspaces = prev.filter(w => w.id !== parseInt(workspaceId));
-        console.log("Workspaces actualizados después de eliminación:", updatedWorkspaces);
+      setWorkspaces((prev) => {
+        const updatedWorkspaces = prev.filter(
+          (w) => w.id !== parseInt(workspaceId)
+        );
+        console.log(
+          "Workspaces actualizados después de eliminación:",
+          updatedWorkspaces
+        );
         return updatedWorkspaces;
       });
-      
+
       // Si estamos en el workspace eliminado, redirigir a la página principal inmediatamente
       if (currentPath.includes(`/workspaces/${workspaceId}`)) {
         console.log("Usuario en workspace eliminado, redirigiendo...");
         // Usar replace en lugar de push para evitar que el usuario pueda volver atrás
-        window.location.href = '/';
+        window.location.href = "/";
       }
     });
-    
+
     // Manejar evento de eliminación de colección
     newSocket.on("collection_deleted", (data) => {
       console.log("Colección eliminada:", data);
       const { workspaceId, collectionId, deletedBy } = data;
       const currentPath = window.location.pathname;
-      
+
       // Mostrar notificación al usuario
       toast.error(
         <div className="flex flex-col gap-1">
           <div className="font-semibold">Colección eliminada</div>
           <div className="text-sm">
-            La colección ha sido eliminada por {deletedBy?.name || "un administrador"}.
+            La colección ha sido eliminada por{" "}
+            {deletedBy?.name || "un administrador"}.
           </div>
         </div>,
         {
           duration: 5000,
         }
       );
-      
+
       // Actualizar el estado global para eliminar la colección del workspace activo
       if (workspace?.id === parseInt(workspaceId)) {
         // Actualizar el workspace activo eliminando la colección
-        updateActiveWorkspace(prev => {
+        updateActiveWorkspace((prev) => {
           if (!prev) return null;
-          
+
           return {
             ...prev,
-            collections: prev.collections?.filter(c => c.id !== parseInt(collectionId)) || []
+            collections:
+              prev.collections?.filter(
+                (c) => c.id !== parseInt(collectionId)
+              ) || [],
           };
         });
-        
+
         // Actualizar todos los workspaces para mantener la consistencia
-        setWorkspaces(prevWorkspaces => {
-          return prevWorkspaces.map(w => {
+        setWorkspaces((prevWorkspaces) => {
+          return prevWorkspaces.map((w) => {
             if (w.id === parseInt(workspaceId)) {
               return {
                 ...w,
-                collections: w.collections?.filter(c => c.id !== parseInt(collectionId)) || []
+                collections:
+                  w.collections?.filter(
+                    (c) => c.id !== parseInt(collectionId)
+                  ) || [],
               };
             }
             return w;
           });
         });
       }
-      
+
       // Si estamos en la colección eliminada, redirigir inmediatamente al workspace
-      if (currentPath.includes(`/workspaces/${workspaceId}/collection/${collectionId}`)) {
+      if (
+        currentPath.includes(
+          `/workspaces/${workspaceId}/collection/${collectionId}`
+        )
+      ) {
         console.log("Usuario en colección eliminada, redirigiendo...");
         // Usar replace en lugar de router.push para asegurar una redirección inmediata
         window.location.href = `/workspaces/${workspaceId}`;
       }
     });
-    
+
+    // Manejar eventos de agenda/tareas
+    newSocket.on("agenda_users_updated", (data) => {
+      console.log("Usuarios de agenda actualizados:", data);
+      setAgendaUsers(data.users || []);
+    });
+
+    // Los eventos de tareas solo muestran notificaciones
+    // La actualización del estado se maneja en cada página específica
+    newSocket.on("task_created", (data) => {
+      console.log("Tarea creada:", data);
+      if (data.createdBy?.email !== session.user.email) {
+        toast.success(`Nueva tarea creada: ${data.task?.title}`, {
+          description: `Por ${data.createdBy?.name || data.createdBy?.email}`,
+        });
+      }
+    });
+
+    newSocket.on("task_updated", (data) => {
+      console.log("Tarea actualizada:", data);
+      if (data.updatedBy?.email !== session.user.email) {
+        toast.info(`Tarea actualizada: ${data.task?.title}`, {
+          description: `Por ${data.updatedBy?.name || data.updatedBy?.email}`,
+        });
+      }
+    });
+
+    newSocket.on("task_deleted", (data) => {
+      console.log("Tarea eliminada:", data);
+      if (data.deletedBy?.email !== session.user.email) {
+        toast.error(`Tarea eliminada`, {
+          description: `Por ${data.deletedBy?.name || data.deletedBy?.email}`,
+        });
+      }
+    });
+
+    newSocket.on("task_moved", (data) => {
+      console.log("Tarea movida:", data);
+      if (data.movedBy?.email !== session.user.email) {
+        toast.info(`Tarea movida: ${data.task?.title}`, {
+          description: `De ${data.fromStatus} a ${data.toStatus} por ${
+            data.movedBy?.name || data.movedBy?.email
+          }`,
+        });
+      }
+    });
+
     // Manejar errores del servidor
     newSocket.on("error", (error) => {
       console.error("Error del servidor:", error);
@@ -525,6 +628,113 @@ export function WorkspaceSocketProvider({ children }) {
     }
   }, [workspace?.id, isConnected]);
 
+  // Funciones para agenda/tareas
+  const joinAgenda = useCallback(() => {
+    if (socketRef.current && isConnected && workspace?.id && session?.user) {
+      console.log("Uniéndose a la agenda:", workspace.id);
+      socketRef.current.emit("join_agenda", workspace.id, {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image || null,
+      });
+    }
+  }, [workspace?.id, session?.user, isConnected]);
+
+  const leaveAgenda = useCallback(() => {
+    if (socketRef.current && isConnected && workspace?.id) {
+      console.log("Saliendo de la agenda:", workspace.id);
+      socketRef.current.emit("leave_agenda", workspace.id);
+    }
+  }, [workspace?.id, isConnected]);
+
+  const emitTaskCreated = useCallback(
+    (task) => {
+      if (socketRef.current && isConnected && workspace?.id && session?.user) {
+        console.log("Emitiendo tarea creada:", task);
+        socketRef.current.emit("task_created", {
+          workspaceId: workspace.id,
+          task,
+          createdBy: {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image || null,
+          },
+        });
+      }
+    },
+    [workspace?.id, session?.user, isConnected]
+  );
+
+  const emitTaskUpdated = useCallback(
+    (task, changes = {}) => {
+      if (socketRef.current && isConnected && workspace?.id && session?.user) {
+        console.log("Emitiendo tarea actualizada:", task, changes);
+        socketRef.current.emit("task_updated", {
+          workspaceId: workspace.id,
+          task,
+          updatedBy: {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image || null,
+          },
+          changes,
+        });
+      }
+    },
+    [workspace?.id, session?.user, isConnected]
+  );
+
+  const emitTaskDeleted = useCallback(
+    (taskId) => {
+      if (socketRef.current && isConnected && workspace?.id && session?.user) {
+        console.log("Emitiendo tarea eliminada:", taskId);
+        socketRef.current.emit("task_deleted", {
+          workspaceId: workspace.id,
+          taskId,
+          deletedBy: {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image || null,
+          },
+        });
+      }
+    },
+    [workspace?.id, session?.user, isConnected]
+  );
+
+  const emitTaskMoved = useCallback(
+    (taskId, fromStatus, toStatus, task) => {
+      if (socketRef.current && isConnected && workspace?.id && session?.user) {
+        console.log("Emitiendo tarea movida:", taskId, fromStatus, toStatus);
+        socketRef.current.emit("task_moved", {
+          workspaceId: workspace.id,
+          taskId,
+          fromStatus,
+          toStatus,
+          task,
+          movedBy: {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image || null,
+          },
+        });
+      }
+    },
+    [workspace?.id, session?.user, isConnected]
+  );
+
+  const requestAgendaUsers = useCallback(() => {
+    if (socketRef.current && isConnected && workspace?.id) {
+      console.log("Solicitando usuarios de la agenda:", workspace.id);
+      socketRef.current.emit("get_agenda_users", workspace.id);
+    }
+  }, [workspace?.id, isConnected]);
+
   // Exponer el contexto
   const value = {
     socket: socketRef.current,
@@ -534,12 +744,21 @@ export function WorkspaceSocketProvider({ children }) {
     usersInCollection,
     messages,
     typingUsers: Array.from(typingUsers.values()),
+    agendaUsers,
     joinCollection,
     leaveCollection,
     sendMessage,
     sendTyping,
     sendStopTyping,
     requestConnectedUsers,
+    // Funciones de agenda/tareas
+    joinAgenda,
+    leaveAgenda,
+    emitTaskCreated,
+    emitTaskUpdated,
+    emitTaskDeleted,
+    emitTaskMoved,
+    requestAgendaUsers,
   };
 
   return (

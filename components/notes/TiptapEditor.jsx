@@ -425,6 +425,9 @@ const TiptapEditor = ({
   const [lastSavedContent, setLastSavedContent] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Estado para controlar si el contenido inicial ya se cargó
+  const [initialContentLoaded, setInitialContentLoaded] = useState(false);
+
   // Inicializar el provider
   useEffect(() => {
     if (!session?.user?.email) return;
@@ -611,6 +614,7 @@ const TiptapEditor = ({
             ]
           : []),
       ],
+      content: provider ? undefined : initialContent, // Solo usar contenido inicial si no hay provider de Y.js
       onUpdate: handleUpdate,
       editorProps: {
         attributes: {
@@ -621,6 +625,64 @@ const TiptapEditor = ({
     },
     [provider, ydoc, session?.user]
   );
+
+  // Cargar contenido inicial una vez que el editor esté listo
+  useEffect(() => {
+    if (editor && initialContent && !initialContentLoaded) {
+      if (provider) {
+        // Con provider Y.js - esperar conexión
+        const checkConnection = () => {
+          console.log("🔍 Verificando conexión Y.js...", {
+            wsconnected: provider.wsconnected,
+            noteId,
+            hasInitialContent: !!initialContent,
+          });
+
+          if (provider.wsconnected) {
+            // Verificar si el documento Y.js está vacío
+            const yFragment = ydoc.get("prosemirror");
+            console.log("📊 Estado del documento Y.js:", {
+              fragmentLength: yFragment.length,
+              noteId,
+            });
+
+            // Si el documento colaborativo está vacío, cargar el contenido inicial
+            if (yFragment.length === 0 && initialContent) {
+              console.log(
+                "📝 Cargando contenido inicial en Y.js desde BD:",
+                initialContent
+              );
+
+              // Usar setContent para cargar el contenido inicial
+              editor.commands.setContent(initialContent);
+              setInitialContentLoaded(true);
+
+              console.log("✅ Contenido inicial cargado en Y.js");
+            } else if (yFragment.length > 0) {
+              // El documento ya tiene contenido colaborativo
+              console.log("📚 Documento Y.js ya tiene contenido colaborativo");
+              setInitialContentLoaded(true);
+            } else {
+              // Documento vacío y sin contenido inicial válido
+              console.log("📄 Documento vacío, sin contenido inicial");
+              setInitialContentLoaded(true);
+            }
+          } else {
+            console.log("⏳ Esperando conexión WebSocket...");
+            // Reintentar en 100ms
+            setTimeout(checkConnection, 100);
+          }
+        };
+
+        checkConnection();
+      } else {
+        // Sin provider Y.js - cargar contenido directamente
+        console.log("📝 Cargando contenido inicial sin Y.js:", initialContent);
+        editor.commands.setContent(initialContent);
+        setInitialContentLoaded(true);
+      }
+    }
+  }, [editor, provider, initialContent, initialContentLoaded, ydoc, noteId]);
 
   if (!editor) {
     return (

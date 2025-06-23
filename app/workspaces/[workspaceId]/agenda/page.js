@@ -65,6 +65,7 @@ import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { useWorkspaceSocket } from "@/components/workspace/workspace-socket-provider";
 import { CheckSquare } from "lucide-react";
 
 function DroppableColumn({ columnId, children }) {
@@ -436,6 +437,20 @@ export default function DraggableBoard() {
   const params = useParams();
   const workspaceId = params?.workspaceId;
 
+  // Socket para tiempo real
+  const {
+    socket,
+    isConnected,
+    agendaUsers,
+    joinAgenda,
+    leaveAgenda,
+    emitTaskCreated,
+    emitTaskUpdated,
+    emitTaskDeleted,
+    emitTaskMoved,
+    requestAgendaUsers,
+  } = useWorkspaceSocket();
+
   const [activeTaskImageError, setActiveTaskImageError] = useState(false);
 
   // Resetear el error de imagen cuando cambia la tarea activa
@@ -443,7 +458,7 @@ export default function DraggableBoard() {
     setActiveTaskImageError(false);
   }, [activeTask]);
 
-  // Cargar tareas al iniciar
+  // Cargar tareas al iniciar y unirse a la agenda
   useEffect(() => {
     if (workspaceId) {
       loadWorkspaceUsers().then(() => {
@@ -451,6 +466,21 @@ export default function DraggableBoard() {
       });
     }
   }, [workspaceId]);
+
+  // Unirse a la agenda cuando el socket esté conectado
+  useEffect(() => {
+    if (isConnected && workspaceId) {
+      joinAgenda();
+      requestAgendaUsers();
+    }
+
+    // Salir de la agenda al desmontar
+    return () => {
+      if (isConnected && workspaceId) {
+        leaveAgenda();
+      }
+    };
+  }, [isConnected, workspaceId, joinAgenda, leaveAgenda, requestAgendaUsers]);
 
   // Cargar los usuarios del workspace y verificar permisos del usuario actual
   const loadWorkspaceUsers = async () => {
@@ -529,6 +559,57 @@ export default function DraggableBoard() {
     }
   };
 
+  // Escuchar eventos específicos de tareas del socket para actualizaciones en tiempo real
+  useEffect(() => {
+    if (!socket || !isConnected || !workspaceId) return;
+
+    const handleTaskCreated = (data) => {
+      console.log("Evento task_created recibido:", data);
+      if (data.task && data.createdBy?.email !== session?.user?.email) {
+        // Solo actualizar si no es el usuario actual quien creó la tarea
+        loadTasks();
+      }
+    };
+
+    const handleTaskUpdated = (data) => {
+      console.log("Evento task_updated recibido:", data);
+      if (data.task && data.updatedBy?.email !== session?.user?.email) {
+        // Solo actualizar si no es el usuario actual quien actualizó la tarea
+        loadTasks();
+      }
+    };
+
+    const handleTaskDeleted = (data) => {
+      console.log("Evento task_deleted recibido:", data);
+      if (data.deletedBy?.email !== session?.user?.email) {
+        // Solo actualizar si no es el usuario actual quien eliminó la tarea
+        loadTasks();
+      }
+    };
+
+    const handleTaskMoved = (data) => {
+      console.log("Evento task_moved recibido:", data);
+      if (data.movedBy?.email !== session?.user?.email) {
+        // Solo actualizar si no es el usuario actual quien movió la tarea
+        loadTasks();
+      }
+    };
+
+    // Registrar eventos
+    socket.on("task_created", handleTaskCreated);
+    socket.on("task_updated", handleTaskUpdated);
+    socket.on("task_deleted", handleTaskDeleted);
+    socket.on("task_moved", handleTaskMoved);
+
+    return () => {
+      // Limpiar eventos
+      socket.off("task_created", handleTaskCreated);
+      socket.off("task_updated", handleTaskUpdated);
+      socket.off("task_deleted", handleTaskDeleted);
+      socket.off("task_moved", handleTaskMoved);
+    };
+  }, [socket, isConnected, workspaceId, session?.user?.email, loadTasks]);
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -577,43 +658,13 @@ export default function DraggableBoard() {
     }
 
     if (activeContainer === overContainer) {
-      setColumns((prev) => {
-        const tasks = [...prev[activeContainer]];
-
-        // Encontrar los índices
-        const activeIndex = tasks.findIndex(
-          (task) => task.id.toString() === activeTaskId
-        );
-
-        // Si estamos sobre una tarea, encontrar su índice
-        let overIndex = -1;
-        if (overTaskId) {
-          overIndex = tasks.findIndex(
-            (task) => task.id.toString() === overTaskId
-          );
-        } else {
-          // Si estamos sobre la columna, mover al final
-          overIndex = tasks.length - 1;
-        }
-
-        if (activeIndex === -1) {
-          return prev;
-        }
-
-        if (overIndex === -1) {
-          return prev;
-        }
-
-        // Reordenar las tareas
-        const taskToMove = tasks[activeIndex];
-        tasks.splice(activeIndex, 1);
-        tasks.splice(overIndex, 0, taskToMove);
-
-        return {
-          ...prev,
-          [activeContainer]: tasks,
-        };
-      });
+      // Reordenar dentro de la misma columna
+      // Por ahora, no implementamos persistencia del orden dentro de la misma columna
+      // ya que requeriría un campo de orden en la base de datos
+      console.log(
+        "Reordenando dentro de la misma columna - funcionalidad pendiente"
+      );
+      return;
     } else {
       // Obtener la tarea antes de actualizar el estado
       const currentColumns = { ...columns };
@@ -633,7 +684,7 @@ export default function DraggableBoard() {
         return;
       }
 
-      // Primero actualizamos la UI
+      // Actualizar inmediatamente la UI para el usuario actual
       setColumns((prev) => {
         const sourceTasks = prev[activeContainer] || [];
         const destinationTasks = prev[overContainer] || [];
@@ -644,7 +695,7 @@ export default function DraggableBoard() {
           console.log("No se encontró la tarea, saliendo...");
           return prev;
         }
-        const taskToMove = sourceTasks[taskIndex];
+        const taskToMoveUI = sourceTasks[taskIndex];
         return {
           ...prev,
           [activeContainer]: [
@@ -653,12 +704,12 @@ export default function DraggableBoard() {
           ],
           [overContainer]: [
             ...destinationTasks,
-            { ...taskToMove, status: overContainer },
+            { ...taskToMoveUI, status: overContainer },
           ],
         };
       });
 
-      // Luego actualizamos en la base de datos
+      // Luego actualizar en la base de datos
       try {
         // Mapeo de estados para el backend
         const statusMap = {
@@ -676,12 +727,22 @@ export default function DraggableBoard() {
             dueDate: taskToMove.dueDate,
             assignedToId: taskToMove.assignedTo,
           });
+
+          // Emitir evento de tarea movida en tiempo real
+          emitTaskMoved(
+            taskToMove.id,
+            activeTask.status,
+            overContainer,
+            taskToMove
+          );
         } else {
           console.error("No se encontró la tarea para actualizar");
         }
       } catch (error) {
         console.error("Error al actualizar el estado de la tarea:", error);
         toast.error("No se pudo actualizar el estado de la tarea");
+        // Si hay error, revertir el cambio en la UI
+        loadTasks();
       }
     }
   };
@@ -720,10 +781,30 @@ export default function DraggableBoard() {
       // Llamar a la API para actualizar la tarea
       await api.tasks.update(editedTask.id, workspaceId, taskData);
 
-      // Actualizar el estado local
+      // Emitir evento de tarea actualizada en tiempo real
+      const changes = {};
+      if (editedTask.title !== editingTask.title)
+        changes.title = editedTask.title;
+      if (editedTask.description !== editingTask.description)
+        changes.description = editedTask.description;
+      if (editedTask.priority !== editingTask.priority)
+        changes.priority = editedTask.priority;
+      if (editedTask.status !== editingTask.status)
+        changes.status = editedTask.status;
+      if (editedTask.dueDate !== editingTask.dueDate)
+        changes.dueDate = editedTask.dueDate;
+      if (editedTask.assignedTo !== editingTask.assignedTo)
+        changes.assignedTo = editedTask.assignedTo;
+      if (editedTask.subtasks !== editingTask.subtasks)
+        changes.subtasks = editedTask.subtasks;
+
+      emitTaskUpdated(editedTask, changes);
+
+      // Actualizar estado local inmediatamente para el usuario actual
       setColumns((prev) => {
         const newColumns = { ...prev };
         if (editedTask.status !== editingTask.status) {
+          // Mover tarea entre columnas
           newColumns[editingTask.status] = newColumns[
             editingTask.status
           ].filter((t) => t.id !== editedTask.id);
@@ -732,6 +813,7 @@ export default function DraggableBoard() {
             editedTask,
           ];
         } else {
+          // Actualizar tarea en la misma columna
           newColumns[editedTask.status] = newColumns[editedTask.status].map(
             (t) => (t.id === editedTask.id ? editedTask : t)
           );
@@ -747,6 +829,11 @@ export default function DraggableBoard() {
   const handleDeleteTask = async (task) => {
     try {
       await api.tasks.delete(workspaceId, task.id);
+
+      // Emitir evento de tarea eliminada en tiempo real
+      emitTaskDeleted(task.id);
+
+      // Actualizar estado local inmediatamente para el usuario actual
       setColumns((prev) => {
         const newColumns = { ...prev };
         newColumns[task.status] = newColumns[task.status].filter(
@@ -801,6 +888,10 @@ export default function DraggableBoard() {
         assignedTo: createdTask.assignedToId,
       };
 
+      // Emitir evento de tarea creada en tiempo real
+      emitTaskCreated(newTask);
+
+      // Actualizar estado local inmediatamente para el usuario actual
       setColumns((prev) => ({
         ...prev,
         [columnId]: [...prev[columnId], newTask],
@@ -860,10 +951,59 @@ export default function DraggableBoard() {
       <Background />
       <div className="p-6 min-h-screen pb-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Gestión de Tareas</h1>
-          <p className="text-gray-400 mt-2">
-            Organiza y gestiona las tareas de tu equipo de forma eficiente
-          </p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold">Gestión de Tareas</h1>
+              <p className="text-gray-400 mt-2">
+                Organiza y gestiona las tareas de tu equipo de forma eficiente
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Indicador de conexión */}
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    isConnected ? "bg-green-500" : "bg-red-500"
+                  }`}
+                />
+                <span className="text-sm text-gray-400">
+                  {isConnected ? "En línea" : "Desconectado"}
+                </span>
+              </div>
+
+              {/* Usuarios en la agenda */}
+              {agendaUsers.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-400">En agenda:</span>
+                  <div className="flex -space-x-2">
+                    {agendaUsers.slice(0, 5).map((user, index) => (
+                      <Avatar
+                        key={user.email}
+                        className="h-6 w-6 border-2 border-background"
+                      >
+                        {user.image ? (
+                          <AvatarImage src={user.image} alt={user.name} />
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-br from-blue-900/50 to-purple-900/50 text-xs">
+                            {user.name
+                              ? user.name.charAt(0).toUpperCase()
+                              : "U"}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                    ))}
+                    {agendaUsers.length > 5 && (
+                      <div className="h-6 w-6 rounded-full bg-gray-700 border-2 border-background flex items-center justify-center">
+                        <span className="text-xs text-gray-300">
+                          +{agendaUsers.length - 5}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 ">
           {isLoading ? (
