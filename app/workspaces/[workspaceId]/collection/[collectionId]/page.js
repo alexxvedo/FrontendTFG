@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useCollectionStore } from "@/store/collections-store/collection-store";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -12,6 +12,10 @@ import {
   Folder,
   StickyNote,
   ShieldAlert,
+  Calendar,
+  BookOpen,
+  GraduationCap,
+  BrainCircuit,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useSocket } from "@/context/socket";
@@ -36,6 +40,7 @@ import CollectionResources from "@/components/collection/CollectionResources";
 import CollectionNotes from "@/components/collection/CollectionNotes";
 import FlashcardTabs from "@/components/collection/FlashcardTabs";
 import CollectionNotFound from "@/components/collection/CollectionNotFound";
+import CollectionCalendar from "@/components/collection/CollectionCalendar";
 
 export default function CollectionPage() {
   const { workspaceId, collectionId } = useParams();
@@ -70,6 +75,10 @@ export default function CollectionPage() {
   const [userPermission, setUserPermission] = useState(null);
   const [collectionResources, setCollectionResources] = useState([]);
   const [errorType, setErrorType] = useState(null);
+  const [isCreateNoteDialogOpen, setIsCreateNoteDialogOpen] = useState(false);
+  const [isUploadResourceDialogOpen, setIsUploadResourceDialogOpen] =
+    useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -405,148 +414,236 @@ export default function CollectionPage() {
       <Background />
 
       <div className="container mx-auto px-4 py-8 z-10 relative">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+          {/* Left side: Back button and collection title */}
+          <div className="flex items-center">
             <Link
               href={`/workspaces/${workspaceId}`}
-              className="flex items-center text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white transition-colors"
+              className="flex items-center text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white transition-colors px-2 py-1.5 rounded-lg hover:bg-gray-100/50 dark:hover:bg-gray-800/50 mr-3"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              <span className="text-sm">Volver</span>
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              <span className="text-xs font-medium">Volver</span>
             </Link>
-            <h1 className="text-3xl font-bold">{collection?.name}</h1>
-            {!canEdit && (
-              <div className="ml-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                <ShieldAlert className="h-3 w-3 mr-1" />
-                Solo lectura
-              </div>
-            )}
-          </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="flex -space-x-2 mr-4">
-              {activeUsers.slice(0, 5).map((user, index) => (
-                <Avatar
-                  key={user.email || index}
-                  className="border-2 border-background dark:border-[#0A0A0F] h-8 w-8"
-                >
-                  <AvatarImage src={user.image} alt={user.name} />
-                  <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
-                </Avatar>
-              ))}
-              {activeUsers.length > 5 && (
-                <div className="h-8 w-8 rounded-full bg-muted dark:bg-gray-800 flex items-center justify-center text-xs border-2 border-background dark:border-[#0A0A0F]">
-                  +{activeUsers.length - 5}
+            <div className="flex flex-wrap md:flex-nowrap items-center gap-3">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                {collection?.name}
+              </h1>
+
+              {!canEdit && (
+                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50">
+                  <ShieldAlert className="h-3 w-3 mr-1" />
+                  Solo lectura
                 </div>
               )}
+
+              {/* User avatars */}
+              <div className="flex -space-x-2 ml-3">
+                {activeUsers.slice(0, 5).map((user, index) => (
+                  <Avatar
+                    key={user.email || index}
+                    className="border-2 border-background dark:border-[#0A0A0F] h-10 w-10"
+                  >
+                    <AvatarImage src={user.image} alt={user.name} />
+                    <AvatarFallback>
+                      {user.name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {activeUsers.length > 5 && (
+                  <div className="h-6 w-6 rounded-full bg-muted dark:bg-gray-800 flex items-center justify-center text-xs border-2 border-background dark:border-[#0A0A0F]">
+                    +{activeUsers.length - 5}
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
 
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  setStudyMode("normal");
-                  setIsStudyDialogOpen(true);
-                }}
-                className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-primary dark:bg-blue-600 text-primary-foreground dark:text-white hover:bg-primary/90 dark:hover:bg-blue-700 transition-colors"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Estudiar
-              </button>
-              <button
-                onClick={() => {
-                  setStudyMode("spaced");
-                  setIsStudyDialogOpen(true);
-                }}
-                className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Repaso espaciado
-              </button>
+          {/* Right side: Study buttons - Modern Design */}
+          <div className="relative flex flex-wrap gap-3">
+            {/* Decorative background element */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-gradient-to-br from-blue-400/30 to-purple-500/30 rounded-full blur-xl"></div>
+            <div className="absolute top-1/2 -right-3 w-6 h-6 bg-yellow-300/40 rounded-full blur-md animate-pulse"></div>
 
-              {/* Separador vertical */}
-              <div className="h-8 border-l border-gray-300/20 dark:border-gray-700/30 mx-2"></div>
+            <button
+              onClick={() => {
+                setStudyMode("normal");
+                setIsStudyDialogOpen(true);
+              }}
+              className="relative group overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl px-5 py-2.5 font-medium shadow-lg hover:shadow-blue-500/30 transition-all duration-300 border border-blue-400/20"
+            >
+              {/* Button background effects */}
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-30 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-300 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
 
-              {canEdit && (
-                <button
-                  onClick={() => setOpenEditor(true)}
-                  className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-primary/10 dark:bg-blue-500/20 text-primary dark:text-blue-400 hover:bg-primary/20 dark:hover:bg-blue-500/30 transition-colors"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Añadir flashcard
-                </button>
-              )}
-            </div>
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
+                  <Play className="h-3.5 w-3.5" fill="currentColor" />
+                </div>
+                <span className="relative">Estudio Normal</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setStudyMode("spaced");
+                setIsStudyDialogOpen(true);
+              }}
+              className="relative group overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl px-5 py-2.5 font-medium shadow-lg hover:shadow-purple-500/30 transition-all duration-300 border border-purple-400/20"
+            >
+              {/* Button background effects */}
+              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-30 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-purple-300 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
+
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-white/20 rounded-md backdrop-blur-sm">
+                  <Zap className="h-3.5 w-3.5" fill="currentColor" />
+                </div>
+                <span className="relative">Repaso Espaciado</span>
+              </div>
+            </button>
           </div>
         </div>
 
-        <Separator className="my-4 bg-gray-200/10" />
+        <Separator className="my-3 bg-gray-200/10" />
 
         <div className="flex flex-col space-y-4">
-          <div className="flex border-b border-gray-200/10 dark:border-gray-800/50">
-            <button
-              onClick={() => setActiveTab("flashcards")}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === "flashcards"
-                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
-                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
-              }`}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Flashcards
-            </button>
-            <button
-              onClick={() => setActiveTab("stats")}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === "stats"
-                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
-                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
-              }`}
-            >
-              <Book className="h-4 w-4 mr-2" />
-              Estadísticas
-            </button>
-            <button
-              onClick={() => setActiveTab("resources")}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === "resources"
-                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
-                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
-              }`}
-            >
-              <Folder className="h-4 w-4 mr-2" />
-              Recursos
-            </button>
-            <button
-              onClick={() => setActiveTab("notes")}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
-                activeTab === "notes"
-                  ? "border-b-2 border-purple-500 text-foreground dark:text-white"
-                  : "text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-gray-300"
-              }`}
-            >
-              <StickyNote className="h-4 w-4 mr-2" />
-              Notas
-            </button>
+          <div className="flex items-center justify-between bg-gradient-to-r from-gray-50/80 to-white/80 dark:from-gray-900/80 dark:to-gray-800/80 rounded-xl p-2 shadow-sm border border-gray-200/30 dark:border-gray-700/30 backdrop-blur-sm">
+            <div className="flex flex-1 overflow-x-auto hide-scrollbar">
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => setActiveTab("flashcards")}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
+                    activeTab === "flashcards"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-200/50 dark:border-blue-800/50"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <Plus className="h-4 w-4" />
+                  Flashcards
+                </button>
+                <button
+                  onClick={() => setActiveTab("calendar")}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
+                    activeTab === "calendar"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-200/50 dark:border-blue-800/50"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <Calendar className="h-4 w-4" />
+                  Calendario
+                </button>
+                <button
+                  onClick={() => setActiveTab("notes")}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
+                    activeTab === "notes"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-200/50 dark:border-blue-800/50"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <StickyNote className="h-4 w-4" />
+                  Notas
+                </button>
+                <button
+                  onClick={() => setActiveTab("resources")}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
+                    activeTab === "resources"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-200/50 dark:border-blue-800/50"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <Folder className="h-4 w-4" />
+                  Recursos
+                </button>
+                <button
+                  onClick={() => setActiveTab("stats")}
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg ${
+                    activeTab === "stats"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-200/50 dark:border-blue-800/50"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <Book className="h-4 w-4" />
+                  Estadísticas
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-2">
-          {activeTab === "flashcards" && (
-            <FlashcardTabs
-              collection={collection}
-              isLoading={isLoading}
-              canEdit={canEdit}
-            />
-          )}
-          {activeTab === "stats" && <CollectionStats collection={collection} />}
-          {activeTab === "resources" && (
-            <CollectionResources
-              collection={collection}
-              canEdit={canEdit}
-              onResourceUploaded={handleResourceUploaded}
-            />
-          )}
-          {activeTab === "notes" && <CollectionNotes canEdit={canEdit} />}
+        <div className="mt-4">
+          <div className="bg-white/50 dark:bg-gray-800/30 rounded-lg p-6 shadow-sm border border-gray-200/20 dark:border-gray-700/30">
+            {activeTab === "flashcards" && (
+              <FlashcardTabs
+                collection={collection}
+                isLoading={isLoading}
+                canEdit={canEdit}
+              />
+            )}
+            {activeTab === "stats" && (
+              <CollectionStats collection={collection} />
+            )}
+            {activeTab === "resources" && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files?.length > 0) {
+                      // Crear un FormData para enviar los archivos
+                      const formData = new FormData();
+                      for (let i = 0; i < e.target.files.length; i++) {
+                        formData.append("file", e.target.files[i]);
+                      }
+
+                      // Llamar a la API para subir los archivos
+                      api.resources
+                        .upload(
+                          parseInt(workspaceId),
+                          parseInt(collectionId),
+                          formData
+                        )
+                        .then(() => {
+                          toast.success("Recurso subido correctamente");
+                          handleResourceUploaded();
+                          // Limpiar el input
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = "";
+                          }
+                        })
+                        .catch((error) => {
+                          console.error("Error al subir el recurso:", error);
+                          toast.error("Error al subir el recurso");
+                        });
+                    }
+                  }}
+                  multiple
+                  accept="*/*"
+                />
+                <CollectionResources
+                  collection={collection}
+                  canEdit={canEdit}
+                  onResourceUploaded={handleResourceUploaded}
+                />
+              </>
+            )}
+            {activeTab === "notes" && (
+              <CollectionNotes
+                canEdit={canEdit}
+                isCreateDialogOpen={isCreateNoteDialogOpen}
+                setIsCreateDialogOpen={setIsCreateNoteDialogOpen}
+              />
+            )}
+            {activeTab === "calendar" && (
+              <CollectionCalendar
+                collection={collection}
+                user={user}
+                workspaceId={workspaceId}
+                collectionId={collectionId}
+              />
+            )}
+          </div>
         </div>
       </div>
 

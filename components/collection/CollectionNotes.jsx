@@ -28,9 +28,12 @@ import {
 import NotesList from "@/components/notes/NotesList";
 import CreateNoteDialog from "@/components/collection/CreateNoteDialog";
 
-export default function CollectionNotes() {
+export default function CollectionNotes({
+  canEdit,
+  isCreateDialogOpen,
+  setIsCreateDialogOpen,
+}) {
   const [notes, setNotes] = useState([]);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("date"); // date, title
   const [sortOrder, setSortOrder] = useState("desc"); // asc, desc

@@ -75,13 +75,13 @@ body {
 
 /* Efecto de cuadrícula para fondo cyberpunk */
 .bg-grid-pattern {
-  background-size: 50px 50px;
   background-image: linear-gradient(
       to right,
-      rgba(255, 255, 255, 0.05) 1px,
+      rgba(128, 128, 255, 0.1) 1px,
       transparent 1px
     ),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    linear-gradient(to bottom, rgba(128, 128, 255, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 /* Efecto de ruido para textura */
@@ -1291,4 +1291,49 @@ tbody tr:hover {
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
+}
+
+/* Custom animation for study buttons */
+@keyframes subtle-pulse {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 3s infinite;
+}
+
+/* Ocultar barra de desplazamiento pero mantener funcionalidad */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE y Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari y Opera */
+}
+
+/* Utilidades de transformación adicionales */
+.skew-x-30 {
+  transform: skewX(30deg);
+}
+
+@keyframes shine-effect {
+  0% {
+    transform: translateX(-100%) skewX(30deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(30deg);
+  }
+}
+
+.animate-shine {
+  animation: shine-effect 2s infinite;
 }
