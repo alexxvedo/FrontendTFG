@@ -10,6 +10,7 @@ import DeleteCollectionDialog from "@/components/collections/DeleteCollectionDia
 import { motion } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { formatDateShort } from "@/lib/date-utils";
 
 export function CollectionsList({
   collections,
@@ -161,16 +162,7 @@ export function CollectionsList({
 
                     <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                       <Calendar className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                      <span>
-                        {new Date(collection.createdAt).toLocaleDateString(
-                          "es-ES",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          }
-                        )}
-                      </span>
+                      <span>{formatDateShort(collection.createdAt)}</span>
                     </div>
 
                     <div className="flex items-center gap-2">

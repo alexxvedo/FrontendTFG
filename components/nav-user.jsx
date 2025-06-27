@@ -202,10 +202,10 @@ export function NavUser({ user }) {
                   <UserCircle className="mr-2 h-4 w-4 text-blue-500 dark:text-blue-400" />
                   Account
                 </DropdownMenuItem>
-                <DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
+                {/*<DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
                   <Bell className="mr-2 h-4 w-4 text-pink-500 dark:text-pink-400" />
                   Notifications
-                </DropdownMenuItem>
+                </DropdownMenuItem>*/}
                 <DropdownMenuItem className="flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
                   {theme === "dark" ? (
                     <Moon className="mr-2 h-4 w-4 text-purple-500 dark:text-purple-400" />

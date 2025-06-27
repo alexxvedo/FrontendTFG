@@ -46,15 +46,17 @@ export function NavMain({ items, isCollapsed }) {
   const isCollectionActive = (collectionId) => {
     // Check for exact match with the collection ID in the URL
     // This ensures only one collection is highlighted at a time
-    return pathname.includes(`/collection/${collectionId}/`) || 
-           pathname.endsWith(`/collection/${collectionId}`);
+    return (
+      pathname.includes(`/collection/${collectionId}/`) ||
+      pathname.endsWith(`/collection/${collectionId}`)
+    );
   };
 
   const handleCollectionClick = useCallback(
     async (collection, e) => {
       e.preventDefault();
       setActiveCollection(collection);
-      
+
       // Verificar que activeWorkspace no sea null antes de acceder a su id
       if (activeWorkspace?.id) {
         router.push(
@@ -63,7 +65,7 @@ export function NavMain({ items, isCollapsed }) {
       } else {
         // Si no hay workspace activo, redirigir a la página principal
         console.error("No hay un workspace activo");
-        router.push('/');
+        router.push("/");
       }
     },
     [router, setActiveCollection, activeWorkspace]
@@ -79,7 +81,7 @@ export function NavMain({ items, isCollapsed }) {
     <SidebarGroup>
       <Separator className="my-2 dark:bg-white/10 bg-zinc-800" />
 
-      <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+      <SidebarGroupLabel>Navegación</SidebarGroupLabel>
 
       <SidebarMenu>
         {items.map((item) => (
@@ -102,7 +104,7 @@ export function NavMain({ items, isCollapsed }) {
 
       <Separator className="my-2 dark:bg-white/10 bg-zinc-800" />
 
-      <SidebarGroupLabel>Collections</SidebarGroupLabel>
+      <SidebarGroupLabel>Colecciones</SidebarGroupLabel>
       <SidebarMenu>
         {collections.map((collection) => (
           <SidebarMenuItem key={collection.id}>
@@ -114,7 +116,11 @@ export function NavMain({ items, isCollapsed }) {
               )}
             >
               <a
-                href={activeWorkspace?.id ? `/workspaces/${activeWorkspace.id}/collection/${collection.id}` : '#'}
+                href={
+                  activeWorkspace?.id
+                    ? `/workspaces/${activeWorkspace.id}/collection/${collection.id}`
+                    : "#"
+                }
                 onClick={(e) => handleCollectionClick(collection, e)}
               >
                 <Folder

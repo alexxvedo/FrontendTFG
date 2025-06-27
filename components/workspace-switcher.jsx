@@ -306,7 +306,7 @@ export function WorkspaceSwitcher() {
               <DialogTrigger asChild>
                 <DropdownMenuItem className="hover:bg-zinc-100 dark:hover:bg-zinc-800/70 focus:bg-zinc-100 dark:focus:bg-zinc-800/70">
                   <Plus className="mr-2 h-4 w-4 text-blue-500 dark:text-purple-400" />{" "}
-                  Create Workspace
+                  Crear Workspace
                 </DropdownMenuItem>
               </DialogTrigger>
             </DropdownMenuContent>
@@ -316,10 +316,10 @@ export function WorkspaceSwitcher() {
       <DialogContent className="sm:max-w-[425px] bg-zinc-900/95 border border-purple-500/20 backdrop-blur-sm shadow-lg">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Create Workspace
+            Crear Workspace
           </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Add a new workspace to organize your collections.
+            Añade un nuevo workspace para organizar tus colecciones.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleCreateWorkspace}>
@@ -327,37 +327,11 @@ export function WorkspaceSwitcher() {
             <div className="space-y-2">
               <div className="relative">
                 <Input
-                  placeholder="Workspace name"
+                  placeholder="Nombre del Workspace"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
                   className="pr-10 bg-zinc-800 border-zinc-700 text-white focus:ring-purple-500/30 focus:border-purple-500/50"
                 />
-                {/* Botón para mostrar/ocultar el picker */}
-                <button
-                  type="button"
-                  onClick={() => setShowEmojiPicker((v) => !v)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xl"
-                  aria-label="Emoji picker"
-                >
-                  😊
-                </button>
-
-                {/* Emoji picker */}
-                {showEmojiPicker && (
-                  <div className="absolute z-50 mt-1">
-                    <Picker
-                      onEmojiClick={(
-                        emojiData /* primer argumento */,
-                        event /* opcional */
-                      ) => {
-                        setWorkspaceName((prev) => prev + emojiData.emoji);
-                        setShowEmojiPicker(false);
-                      }}
-                      disableAutoFocus={true}
-                      native
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -366,7 +340,7 @@ export function WorkspaceSwitcher() {
               type="submit"
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-none shadow-md hover:shadow-lg transition-all duration-200"
             >
-              Create
+              Crear
             </Button>
           </DialogFooter>
         </form>

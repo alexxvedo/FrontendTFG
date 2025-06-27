@@ -169,13 +169,13 @@ export default function Dashboard() {
                 <Users className="h-4 w-4 mr-2" />
                 Miembros
               </TabsTrigger>
-              <TabsTrigger
+              {/* <TabsTrigger
                 value="rankings"
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-purple-500 data-[state=active]:text-foreground dark:data-[state=active]:text-white rounded-none px-4 py-2 text-muted-foreground dark:text-gray-400"
               >
                 <Activity className="h-4 w-4 mr-2" />
                 Rankings
-              </TabsTrigger>
+              </TabsTrigger> */}
             </TabsList>
           </div>
 

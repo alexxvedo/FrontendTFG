@@ -346,63 +346,6 @@ export default function CollectionStats({ collection }) {
 
           {/* Stats grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Actividad reciente */}
-            <motion.div
-              variants={itemVariants}
-              className="rounded-xl bg-white/80 dark:bg-zinc-900/50 backdrop-blur-sm p-6 shadow-lg border border-white/50 dark:border-zinc-800/50 hover:shadow-xl transition-shadow"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/20">
-                  <Activity className="w-5 h-5 text-blue-500" />
-                </div>
-                <h3 className="text-lg font-bold text-zinc-800 dark:text-white">
-                  Actividad reciente
-                </h3>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <p className="text-zinc-600 dark:text-zinc-300">Hoy</p>
-                  </div>
-                  <p className="text-xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.reviewedToday || 0}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <p className="text-zinc-600 dark:text-zinc-300">
-                      Últimos 7 días
-                    </p>
-                  </div>
-                  <p className="text-xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.reviewedLast7Days || 0}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <p className="text-zinc-600 dark:text-zinc-300">
-                      Últimos 30 días
-                    </p>
-                  </div>
-                  <p className="text-xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.reviewedLast30Days || 0}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
             {/* Estado de las tarjetas */}
             <motion.div
               variants={itemVariants}
@@ -873,127 +816,6 @@ export default function CollectionStats({ collection }) {
               </div>
             </motion.div>
 
-            {/* Revisiones */}
-            <motion.div
-              variants={itemVariants}
-              className="rounded-xl bg-white/80 dark:bg-zinc-900/50 backdrop-blur-sm p-6 shadow-lg border border-white/50 dark:border-zinc-800/50 hover:shadow-xl transition-shadow"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/20">
-                  <Clock className="w-5 h-5 text-blue-500" />
-                </div>
-                <h3 className="text-lg font-bold text-zinc-800 dark:text-white">
-                  Revisiones
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-4">
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-                    Hoy
-                  </p>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.reviewedToday || 0}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-4">
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-                    Últimos 7 días
-                  </p>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.reviewedLast7Days || 0}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-4">
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-                    Últimos 30 días
-                  </p>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.reviewedLast30Days || 0}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-900/10 p-4">
-                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 mb-1">
-                    Total
-                  </p>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
-                    {advancedStats.totalReviews || 0}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Rendimiento */}
-            <motion.div
-              variants={itemVariants}
-              className="rounded-xl bg-white/80 dark:bg-zinc-900/50 backdrop-blur-sm p-6 shadow-lg border border-white/50 dark:border-zinc-800/50 hover:shadow-xl transition-shadow"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/20">
-                  <Award className="w-5 h-5 text-green-500" />
-                </div>
-                <h3 className="text-lg font-bold text-zinc-800 dark:text-white">
-                  Rendimiento
-                </h3>
-              </div>
-
-              <div className="flex justify-center mb-6">
-                <div className="relative w-32 h-32">
-                  <svg className="w-full h-full" viewBox="0 0 100 100">
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="45"
-                      fill="none"
-                      stroke="#e5e7eb"
-                      strokeWidth="10"
-                      className="dark:stroke-zinc-700"
-                    />
-                    <circle
-                      cx="50"
-                      cy="50"
-                      r="45"
-                      fill="none"
-                      stroke="url(#successGradient)"
-                      strokeWidth="10"
-                      strokeDasharray={`${2 * Math.PI * 45}`}
-                      strokeDashoffset={`${
-                        2 * Math.PI * 45 * (1 - advancedStats.successRate / 100)
-                      }`}
-                      strokeLinecap="round"
-                      transform="rotate(-90 50 50)"
-                    />
-                    <defs>
-                      <linearGradient
-                        id="successGradient"
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="50%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#ec4899" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center flex-col">
-                    <p className="text-3xl font-bold text-zinc-800 dark:text-white">
-                      {Math.round(advancedStats.successRate)}%
-                    </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Tasa de éxito
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Streak section removed as requested */}
-            </motion.div>
-
             {/* Tiempo de estudio */}
             <motion.div
               variants={itemVariants}
@@ -1008,15 +830,15 @@ export default function CollectionStats({ collection }) {
                 </h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4">
-                  <div className="flex items-center gap-2 mb-1">
+              <div className=" flex flex-col gap-4 justify-center h-full">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4 h-[20%]">
+                  <div className="flex items-center gap-2 ">
                     <Clock4 className="w-4 h-4 text-amber-500" />
                     <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                       Tiempo medio
                     </p>
                   </div>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
+                  <p className="text-4xl font-bold text-zinc-800 dark:text-white flex justify-center items-center h-full gap-2">
                     {advancedStats.avgTimePerCard}{" "}
                     <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
                       seg/tarjeta
@@ -1024,16 +846,16 @@ export default function CollectionStats({ collection }) {
                   </p>
                 </div>
 
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4 h-[20%]">
+                  <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-amber-500" />
                     <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                       Horas de estudio
                     </p>
                   </div>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
+                  <p className="text-4xl font-bold text-zinc-800 dark:text-white flex justify-center items-center h-full gap-2">
                     {advancedStats.studyHours}{" "}
-                    <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+                    <span className="text-lg font-normal text-zinc-500 dark:text-zinc-400">
                       h{" "}
                     </span>
                     {advancedStats.studyMinutes}{" "}
@@ -1043,16 +865,16 @@ export default function CollectionStats({ collection }) {
                   </p>
                 </div>
 
-                <div className="col-span-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 p-4 h-[20%]">
+                  <div className="flex items-center gap-2 ">
                     <BookOpen className="w-4 h-4 text-amber-500" />
                     <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                       Tarjetas pendientes hoy
                     </p>
                   </div>
-                  <p className="text-2xl font-bold text-zinc-800 dark:text-white">
+                  <p className="text-4xl font-bold text-zinc-800 dark:text-white flex justify-center items-center h-full gap-2">
                     {advancedStats.dueForReview}{" "}
-                    <span className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
+                    <span className="text-lg font-normal text-zinc-500 dark:text-zinc-400">
                       flashcards
                     </span>
                   </p>

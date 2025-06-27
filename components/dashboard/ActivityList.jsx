@@ -17,19 +17,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import { Activity, Clock } from "lucide-react";
+import { formatDateTime } from "@/lib/date-utils";
 
 export default function ActivityList({ activityList }) {
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   // Animaciones para los elementos
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -140,7 +130,7 @@ export default function ActivityList({ activityList }) {
                 <TableCell className="text-right text-muted-foreground dark:text-gray-400 py-4">
                   <div className="flex items-center justify-center space-x-1">
                     <span className="px-2 py-1 rounded-md bg-gray-100/50 dark:bg-gray-800/50 text-xs font-medium group-hover:bg-gray-200/50 dark:group-hover:bg-gray-700/50 transition-colors">
-                      {formatDate(activity.timestamp)}
+                      {formatDateTime(activity.timestamp)}
                     </span>
                   </div>
                 </TableCell>

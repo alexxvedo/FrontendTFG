@@ -69,13 +69,13 @@ export function AppSidebar({ ...props }) {
   const navItems = useMemo(
     () => [
       {
-        title: "Dashboard",
+        title: "Resumen",
         url: `/workspaces/${activeWorkspace?.id}`,
         icon: Home,
         isActive: true,
       },
       {
-        title: "Collections",
+        title: "Colecciones",
         url: `/workspaces/${activeWorkspace?.id}/collections`,
         icon: BookA,
         isActive: false,
@@ -87,7 +87,7 @@ export function AppSidebar({ ...props }) {
         isActive: false,
       },
       {
-        title: "Todo",
+        title: "Tareas",
         url: `/workspaces/${activeWorkspace?.id}/agenda`,
         icon: ListTodo,
         isActive: false,
